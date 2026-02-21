@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receipt OCR Processor - Side by Side Comparison</title>
+    <!-- This works for both Flask and direct file open -->
+    <script>
+        // Auto-detect if we're in Flask or direct file
+        if (window.location.protocol === 'file:') {
+            // Direct file open - use relative paths
+            document.write('<link rel="stylesheet" href="./style.css">');
+        } else {
+            // Flask server - use root path
+            document.write('<link rel="stylesheet" href="/style.css">');
+        }
+    </script>
+    <noscript>
+        <!-- Fallback for no JavaScript -->
+        <link rel="stylesheet" href="/style.css">
+    </noscript>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-receipt"></i> Receipt OCR Processor</h1>
+            <p class="subtitle">Compare original receipt with extracted text side by side</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Connection Status -->
+            <div class="connection-status">
+                <div class="status-card">
+                    <h3><i class="fas fa-plug"></i> Connection Status</h3>
+                    <div class="status-indicator">
+                        <span class="status-label">Backend:</span>
+                        <span id="backendStatus" class="status-dot offline">Checking...</span>
+                    </div>
+                    <div class="status-indicator">
+                        <span class="status-label">API Key:</span>
+                        <span id="apiKeyStatus" class="status-dot offline">Unknown</span>
+                    </div>
+                    <button id="refreshStatusBtn" class="btn-small">
+                        <i class="fas fa-sync-alt"></i> Refresh Status
+                    </button>
+                </div>
+            </div>
+
+            <div class="upload-section">
+                <h2><i class="fas fa-upload"></i> Upload Receipt</h2>
+                <div class="upload-area" id="dropZone">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Drag & drop your receipt image here or click to browse</p>
+                    <input type="file" id="fileInput" accept="image/*,.pdf" hidden>
+                    <!-- FIXED: Only ONE button here -->
+                    <button class="btn-secondary">
+                        <i class="fas fa-folder-open"></i> Browse Files
+                    </button>
+                    <p class="file-requirements">Supported formats: JPG, PNG, GIF, WebP, PDF • Max 10MB</p>
+                </div>
+                <div class="image-preview">
+                    <img id="previewImage" alt="Preview">
+                    <div class="preview-overlay" id="previewOverlay">
+                        <i class="fas fa-times" id="clearPreview"></i>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button class="btn-primary" id="processBtn" disabled>
+                        <i class="fas fa-cogs"></i> Process Receipt
+                    </button>
+                </div>
+            </div>
+
+            <div class="results-section">
+                <h2><i class="fas fa-file-alt"></i> Extracted Data</h2>
+                <div class="status" id="status">
+                    <i class="fas fa-info-circle"></i> Ready to process receipt
+                </div>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Processing your receipt...</p>
+                    <p class="loading-details" id="loadingDetails"></p>
+                </div>
+                <div class="results" id="results">
+                    <!-- Results will appear here -->
+                </div>
+            </div>
+
+            <div class="odoo-section">
+                <h2><i class="fas fa-exchange-alt"></i> Odoo Integration</h2>
+                <div class="odoo-config">
+                    <div class="form-group">
+                        <label for="odooUrl"><i class="fas fa-link"></i> Odoo URL</label>
+                        <input type="text" id="odooUrl" placeholder="http://localhost:8069" value="http://localhost:8069">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="odooDb"><i class="fas fa-database"></i> Database</label>
+                            <input type="text" id="odooDb" placeholder="odoo" value="odoo">
+                        </div>
+                        <div class="form-group">
+                            <label for="odooUsername"><i class="fas fa-user"></i> Username</label>
+                            <input type="text" id="odooUsername" placeholder="admin" value="admin">
+                        </div>
+                        <div class="form-group">
+                            <label for="odooPassword"><i class="fas fa-key"></i> Password</label>
+                            <input type="password" id="odooPassword" placeholder="admin" value="admin">
+                        </div>
+                    </div>
+                    <div class="button-group">
+                        <button class="btn-upload" id="uploadOdooBtn" disabled>
+                            <i class="fas fa-upload"></i> Upload to Odoo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p><i class="fas fa-bolt"></i> Powered by AI OCR & Odoo Integration</p>
+            <p class="version">Version 2.0.0 | Side by Side Comparison | Backend: <span id="backendUrl">http://localhost:5000</span></p>
+        </footer>
+    </div>
+
+    <script src="/script.js"></script>
+</body>
+</html>

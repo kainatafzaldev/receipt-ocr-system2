@@ -1,0 +1,13 @@
+# Core Requirements
+Flask==2.3.3
+Flask-CORS==4.0.0
+python-dotenv==1.0.0
+
+# OCR & Image Processing
+Pillow==10.0.0
+requests==2.31.0
+
+# Development & Testing
+Werkzeug==2.3.7
+Jinja2==3.1.2
+MarkupSafe==2.1.3

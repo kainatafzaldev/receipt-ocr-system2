@@ -1,0 +1,9 @@
+2026-02-10 17:09:07,979 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.1.18:5000
+2026-02-10 17:09:07,979 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2026-02-10 17:09:48,637 - werkzeug - INFO - 127.0.0.1 - - [10/Feb/2026 17:09:48] "GET /api/health HTTP/1.1" 200 -
+2026-02-10 17:09:50,722 - __main__ - INFO - Received image data - type: str, first 50 chars: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQA...
+2026-02-10 17:09:50,722 - __main__ - INFO - Test mode enabled - returning mock response
+2026-02-10 17:09:50,722 - werkzeug - INFO - 127.0.0.1 - - [10/Feb/2026 17:09:50] "POST /api/process-receipt HTTP/1.1" 200 -
