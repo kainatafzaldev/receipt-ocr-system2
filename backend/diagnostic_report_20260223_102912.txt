@@ -1,0 +1,11 @@
+PROJECT DIAGNOSTIC REPORT
+============================================================
+Date: 2026-02-23 10:29:12
+Project: C:\Users\Kainat\Documents\OCR_Project\backend
+Files checked: 9
+Issues: 2
+Warnings: 0
+
+CRITICAL ISSUES:
+- Syntax error in debug_ocr.py: invalid non-printable character U+FEFF (<unknown>, line 1)
+- Syntax error in simple_test.py: invalid non-printable character U+FEFF (<unknown>, line 1)

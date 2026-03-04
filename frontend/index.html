@@ -4,21 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Receipt OCR Processor - Side by Side Comparison</title>
-    <!-- This works for both Flask and direct file open -->
-    <script>
-        // Auto-detect if we're in Flask or direct file
-        if (window.location.protocol === 'file:') {
-            // Direct file open - use relative paths
-            document.write('<link rel="stylesheet" href="./style.css">');
-        } else {
-            // Flask server - use root path
-            document.write('<link rel="stylesheet" href="/style.css">');
-        }
-    </script>
-    <noscript>
-        <!-- Fallback for no JavaScript -->
-        <link rel="stylesheet" href="/style.css">
-    </noscript>
+    <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -26,7 +12,7 @@
     <div class="container">
         <header>
             <h1><i class="fas fa-receipt"></i> Receipt OCR Processor</h1>
-            <p class="subtitle">Compare original receipt with extracted text side by side</p>
+            <p class="subtitle">Extract text from receipts and upload to Odoo</p>
         </header>
 
         <div class="main-content">
@@ -53,19 +39,20 @@
                 <div class="upload-area" id="dropZone">
                     <i class="fas fa-cloud-upload-alt"></i>
                     <p>Drag & drop your receipt image here or click to browse</p>
-                    <input type="file" id="fileInput" accept="image/*,.pdf" hidden>
-                    <!-- FIXED: Only ONE button here -->
-                    <button class="btn-secondary">
+                    <input type="file" id="fileInput" accept="image/*" hidden>
+                    <button class="btn-secondary" id="browseBtn">
                         <i class="fas fa-folder-open"></i> Browse Files
                     </button>
-                    <p class="file-requirements">Supported formats: JPG, PNG, GIF, WebP, PDF • Max 10MB</p>
+                    <p class="file-requirements">Supported formats: JPG, PNG, GIF, WebP • Max 10MB</p>
                 </div>
+                
                 <div class="image-preview">
                     <img id="previewImage" alt="Preview">
                     <div class="preview-overlay" id="previewOverlay">
                         <i class="fas fa-times" id="clearPreview"></i>
                     </div>
                 </div>
+
                 <div class="button-group">
                     <button class="btn-primary" id="processBtn" disabled>
                         <i class="fas fa-cogs"></i> Process Receipt
@@ -110,6 +97,9 @@
                         </div>
                     </div>
                     <div class="button-group">
+                        <button class="btn-test" id="testOdooBtn">
+                            <i class="fas fa-plug"></i> Test Connection
+                        </button>
                         <button class="btn-upload" id="uploadOdooBtn" disabled>
                             <i class="fas fa-upload"></i> Upload to Odoo
                         </button>
@@ -120,7 +110,7 @@
 
         <footer>
             <p><i class="fas fa-bolt"></i> Powered by AI OCR & Odoo Integration</p>
-            <p class="version">Version 2.0.0 | Side by Side Comparison | Backend: <span id="backendUrl">http://localhost:5000</span></p>
+            <p class="version">Version 2.0.0 | Backend: <span id="backendUrl">http://localhost:5000</span></p>
         </footer>
     </div>
 

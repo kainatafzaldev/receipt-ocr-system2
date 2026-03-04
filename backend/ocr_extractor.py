@@ -125,8 +125,17 @@ Extract line by line, exactly as shown."""
                 
                 logger.info(f"✅ Successfully extracted {len(cleaned_text)} characters")
                 
-                # Parse the receipt text for display
+                # Parse the receipt text with enhanced tax extraction
                 parsed_data = parse_receipt_text(cleaned_text)
+                
+                # Calculate tax rate for dynamic tax mapping
+                if parsed_data['subtotal'] > 0 and parsed_data['tax'] > 0:
+                    tax_rate = (parsed_data['tax'] / parsed_data['subtotal']) * 100
+                    parsed_data['tax_rate'] = round(tax_rate, 2)
+                    logger.info(f"💰 Calculated Tax Rate: {parsed_data['tax_rate']}%")
+                else:
+                    parsed_data['tax_rate'] = 0
+                    logger.info("💰 No tax detected or subtotal is zero")
                 
                 return {
                     'raw_text': cleaned_text,
@@ -134,7 +143,8 @@ Extract line by line, exactly as shown."""
                     'statistics': {
                         'characters': len(cleaned_text),
                         'lines': len(lines),
-                        'items_found': len(parsed_data.get('items', []))
+                        'items_found': len(parsed_data.get('items', [])),
+                        'tax_rate': parsed_data.get('tax_rate', 0)  # ADDED
                     },
                     'metadata': {
                         'model': model_name,
@@ -156,7 +166,7 @@ Extract line by line, exactly as shown."""
         return None
 
 def parse_receipt_text(text):
-    """Parse receipt text into structured format for display"""
+    """Parse receipt text into structured format with enhanced tax extraction"""
     lines = text.strip().split('\n')
     structured = {
         'vendor_name': '',
@@ -168,8 +178,12 @@ def parse_receipt_text(text):
         'tax': 0,
         'total': 0,
         'payment': '',
-        'recall': ''
+        'recall': '',
+        'tax_rate': 0  # ADDED
     }
+    
+    # Common tax keywords in receipts
+    tax_keywords = ['TAX', 'VAT', 'GST', 'SALES TAX', 'TAX TOTAL', 'TAX AMOUNT']
     
     for i, line in enumerate(lines):
         line = line.strip()
@@ -186,49 +200,62 @@ def parse_receipt_text(text):
         if 'Ph:' in line or '(562)' in line:
             structured['phone'] = line
         
-        # Order number
-        if 'ORDER #' in line:
-            structured['bill_reference'] = line.replace('ORDER #', '').strip()
+        # Bill reference - more generic pattern
+        if any(ref in line.upper() for ref in ['ORDER #', 'BILL #', 'INVOICE #', 'RECEIPT #', 'REF #']):
+            # Extract just the reference number
+            parts = line.split()
+            for part in parts:
+                if '/' in part or part.isdigit():
+                    structured['bill_reference'] = part
+                    break
+            if not structured['bill_reference']:
+                structured['bill_reference'] = line
         
-        # Items and prices
-        if 'ASADA TACO' in line:
+        # Items - more generic pattern for any receipt
+        # Look for lines with price at the end
+        price_pattern = r'\d+\.\d{2}$'
+        if re.search(price_pattern, line) and not any(keyword in line.upper() for keyword in tax_keywords + ['SUBTOTAL', 'TOTAL', 'BALANCE', 'CHANGE']):
             parts = line.split()
             if len(parts) >= 2:
-                qty = parts[0] if parts[0].isdigit() else '1'
-                price = parts[-1] if parts[-1].replace('.', '').isdigit() else '0'
-                description = ' '.join(parts[1:-1]) if len(parts) > 2 else 'ASADA TACO'
-                structured['items'].append({
-                    'description': description,
-                    'quantity': qty,
-                    'price': price,
-                    'line_total': price
-                })
+                # Try to extract price from the end
+                try:
+                    price = parts[-1]
+                    # Check if it's a valid price
+                    if re.match(r'^\d+\.\d{2}$', price):
+                        # Try to get quantity if it's at the beginning
+                        qty = '1'
+                        if parts[0].replace('x', '').replace('X', '').isdigit():
+                            qty = parts[0].replace('x', '').replace('X', '')
+                            description = ' '.join(parts[1:-1])
+                        else:
+                            description = ' '.join(parts[:-1])
+                        
+                        structured['items'].append({
+                            'description': description,
+                            'quantity': qty,
+                            'price': float(price),
+                            'line_total': float(price) * float(qty)
+                        })
+                except (ValueError, IndexError):
+                    pass
         
-        # ATM charge
-        if 'ATM CHARGE' in line:
-            parts = line.split()
-            price = parts[-1] if parts[-1].replace('.', '').isdigit() else '0'
-            structured['items'].append({
-                'description': 'ATM CHARGE',
-                'quantity': '1',
-                'price': price,
-                'line_total': price
-            })
+        # Tax extraction - look for any line containing tax keywords
+        for keyword in tax_keywords:
+            if keyword in line.upper():
+                match = re.search(r'(\d+\.\d{2})', line)
+                if match:
+                    structured['tax'] = float(match.group(1))
+                    logger.info(f"💰 Found tax: {structured['tax']} in line: {line}")
+                    break
         
         # Subtotal
-        if 'SUBTOTAL' in line:
+        if 'SUBTOTAL' in line.upper():
             match = re.search(r'(\d+\.\d{2})', line)
             if match:
                 structured['subtotal'] = float(match.group(1))
         
-        # Tax
-        if 'TAX TOTAL' in line:
-            match = re.search(r'(\d+\.\d{2})', line)
-            if match:
-                structured['tax'] = float(match.group(1))
-        
         # Total
-        if 'TOTAL' in line and 'TAX' not in line:
+        if 'TOTAL' in line.upper() and 'TAX' not in line.upper():
             match = re.search(r'(\d+\.\d{2})', line)
             if match:
                 structured['total'] = float(match.group(1))
@@ -240,6 +267,17 @@ def parse_receipt_text(text):
         # Recall
         if 'RECALL' in line:
             structured['recall'] = line
+    
+    # If tax wasn't found but we have subtotal and total, calculate tax
+    if structured['tax'] == 0 and structured['subtotal'] > 0 and structured['total'] > 0:
+        calculated_tax = structured['total'] - structured['subtotal']
+        if calculated_tax > 0:
+            structured['tax'] = round(calculated_tax, 2)
+            logger.info(f"💰 Tax calculated from total - subtotal: {structured['tax']}")
+    
+    # Calculate tax rate
+    if structured['subtotal'] > 0 and structured['tax'] > 0:
+        structured['tax_rate'] = round((structured['tax'] / structured['subtotal']) * 100, 2)
     
     return structured
 
@@ -264,7 +302,16 @@ if __name__ == "__main__":
             print("-" * 70)
             print(result['raw_text'])
             print("-" * 70)
-            print(f"\n📊 Statistics: {result['statistics']}")
+            print(f"\n📊 Statistics:")
+            print(f"   - Characters: {result['statistics']['characters']}")
+            print(f"   - Lines: {result['statistics']['lines']}")
+            print(f"   - Items found: {result['statistics']['items_found']}")
+            print(f"   - Tax Rate: {result['statistics']['tax_rate']}%")  # ADDED
+            print(f"\n💰 Extracted Values:")
+            print(f"   - Subtotal: ${result['structured_data']['subtotal']}")
+            print(f"   - Tax: ${result['structured_data']['tax']}")
+            print(f"   - Tax Rate: {result['structured_data']['tax_rate']}%")
+            print(f"   - Total: ${result['structured_data']['total']}")
         else:
             print("\n❌ EXTRACTION FAILED")
     else:
