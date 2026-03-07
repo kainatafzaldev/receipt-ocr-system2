@@ -1,8 +1,0 @@
-PROJECT DIAGNOSTIC REPORT
-============================================================
-Date: 2026-02-23 10:31:28
-Project: C:\Users\Kainat\Documents\OCR_Project\backend
-Files checked: 9
-Issues: 0
-Warnings: 0
-

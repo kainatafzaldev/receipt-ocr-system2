@@ -1,255 +1,93 @@
-# odoo_integration.py
 import xmlrpc.client
 import logging
-from datetime import datetime
-import base64
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 class OdooConnector:
     def __init__(self, url=None, db=None, username=None, password=None):
-        # Use environment variables as fallback
-        self.url = url or os.getenv('ODOO_URL', 'http://localhost:8069')
-        self.db = db or os.getenv('ODOO_DB', 'odoo')
-        self.username = username or os.getenv('ODOO_USERNAME', 'admin')
-        self.password = password or os.getenv('ODOO_PASSWORD', 'admin')
+        # Clean up URL to ensure it has no trailing slash
+        self.url = (url or os.getenv('ODOO_URL', 'https://kainatcecos4.odoo.com')).rstrip('/')
+        self.db = db or os.getenv('ODOO_DB', 'kainatcecos4')
+        self.username = username or os.getenv('ODOO_USERNAME', 'kainatcecos17@gmail.com')
+        self.password = password or os.getenv('ODOO_PASSWORD', '41680a891e21db977c4ecb432b42600faffa4c8')
         self.uid = None
         self.models = None
-        self.common = None
-    
+
     def connect(self):
-        """Connect to Odoo"""
+        """Authenticates using the official XML-RPC common service."""
         try:
-            self.common = xmlrpc.client.ServerProxy(f'{self.url}/xmlrpc/2/common')
-            self.uid = self.common.authenticate(self.db, self.username, self.password, {})
+            common = xmlrpc.client.ServerProxy(f"{self.url}/xmlrpc/2/common")
+            self.uid = common.authenticate(self.db, self.username, self.password, {})
             
             if self.uid:
-                self.models = xmlrpc.client.ServerProxy(f'{self.url}/xmlrpc/2/object')
-                logger.info(f"✅ Connected to Odoo as {self.username}")
+                logger.info(f"✅ Odoo authenticated. UID: {self.uid}")
+                # Initialize the object proxy for making data calls
+                self.models = xmlrpc.client.ServerProxy(f"{self.url}/xmlrpc/2/object")
                 return True
             else:
-                logger.error("❌ Authentication failed")
+                logger.error("❌ Odoo Auth Failed: Access Denied. Check if user has API access.")
                 return False
-                
         except Exception as e:
             logger.error(f"❌ Connection error: {e}")
             return False
-    
+
+    def _call_kw(self, model, method, args, kwargs=None):
+        """Standard method to call Odoo functions."""
+        if not self.uid and not self.connect():
+            raise Exception("Authentication failed.")
+        
+        return self.models.execute_kw(
+            self.db, self.uid, self.password,
+            model, method, args, kwargs or {}
+        )
+
     def create_vendor_bill(self, data):
-        """Create a vendor bill in Odoo"""
+        """Creates a vendor bill (account.move) in Odoo."""
         try:
-            if not self.models:
-                if not self.connect():
-                    return None
+            # 1. Get/Create Partner
+            partner_id = self._get_or_create_partner(data.get('vendor_name'))
             
-            # Find or create vendor
-            partner_id = self._get_or_create_partner(data.get('vendor_name', 'Unknown Vendor'))
-            
-            # Prepare invoice lines
+            # 2. Find Purchase Journal
+            journal_ids = self._call_kw('account.journal', 'search', [[('type', '=', 'purchase')]], {"limit": 1})
+            if not journal_ids:
+                raise Exception("No purchase journal found in Odoo.")
+            journal_id = journal_ids[0]
+
+            # 3. Build Invoice Lines
             invoice_lines = []
             for line in data.get('invoice_lines', []):
-                # Find or create product
-                product_id = self._get_or_create_product(line.get('label', 'Unknown Product'))
-                
-                # Get expense account
-                account_id = self._get_expense_account()
-                
+                product_id = self._get_or_create_product(line.get('label'))
                 invoice_lines.append((0, 0, {
                     'product_id': product_id,
-                    'name': line.get('label', ''),
-                    'quantity': line.get('quantity', 1),
-                    'price_unit': line.get('price_unit', 0),
-                    'account_id': account_id,
+                    'name': line.get('label'),
+                    'quantity': float(line.get('quantity', 1)),
+                    'price_unit': float(line.get('price_unit', 0)),
                 }))
-            
-            # Get currency ID
-            currency_id = self._get_currency_id(data.get('currency', 'USD'))
-            
-            # Create bill - FIXED: Added invoice_line_ids back
+
+            # 4. Create the Move
             bill_vals = {
                 'partner_id': partner_id,
+                'journal_id': journal_id,
+                'move_type': 'in_invoice', # Standard Odoo technical name for Vendor Bill
                 'invoice_date': data.get('bill_date', datetime.now().strftime('%Y-%m-%d')),
-                'invoice_date_due': data.get('due_date', datetime.now().strftime('%Y-%m-%d')),
-                'invoice_line_ids': invoice_lines,  # ← This was missing!
-                'move_type': 'in_invoice',
-                'currency_id': currency_id,
-                'invoice_payment_term_id': False,
+                'invoice_line_ids': invoice_lines,
             }
-            
-            logger.info(f"Creating bill with values: {bill_vals}")
-            
-            bill_id = self.models.execute_kw(
-                self.db, self.uid, self.password,
-                'account.move', 'create',
-                [bill_vals]
-            )
-            
-            if bill_id:
-                # Get bill number
-                bill_data = self.models.execute_kw(
-                    self.db, self.uid, self.password,
-                    'account.move', 'read',
-                    [bill_id], {'fields': ['name']}
-                )
-                
-                bill_number = bill_data[0]['name'] if bill_data else f"BILL{str(bill_id).zfill(5)}"
-                
-                return {
-                    'id': bill_id,
-                    'number': bill_number,
-                    'url': f"{self.url}/web#id={bill_id}&model=account.move"
-                }
-            
-            return None
-            
+
+            bill_id = self._call_kw('account.move', 'create', [bill_vals])
+            logger.info(f"✅ Bill created successfully! ID: {bill_id}")
+            return {'id': bill_id}
         except Exception as e:
-            logger.error(f"Error creating bill: {e}")
+            logger.error(f"❌ Failed to create bill: {e}")
             return None
-    
-    def attach_receipt_to_bill(self, bill_id, receipt_image_base64):
-        """Attach receipt image to the bill"""
-        try:
-            if not self.models:
-                return False
-            
-            # Clean base64
-            if 'base64,' in receipt_image_base64:
-                receipt_image_base64 = receipt_image_base64.split('base64,')[1]
-            
-            # Create attachment
-            attachment_vals = {
-                'name': f'receipt_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg',
-                'datas': receipt_image_base64,
-                'res_model': 'account.move',
-                'res_id': bill_id,
-                'type': 'binary',
-            }
-            
-            attachment_id = self.models.execute_kw(
-                self.db, self.uid, self.password,
-                'ir.attachment', 'create',
-                [attachment_vals]
-            )
-            
-            return bool(attachment_id)
-            
-        except Exception as e:
-            logger.error(f"Error attaching receipt: {e}")
-            return False
-    
+
     def _get_or_create_partner(self, name):
-        """Find or create a vendor partner"""
-        try:
-            # Search for existing partner
-            partner_ids = self.models.execute_kw(
-                self.db, self.uid, self.password,
-                'res.partner', 'search',
-                [[('name', '=', name), ('supplier_rank', '>', 0)]]
-            )
-            
-            if partner_ids:
-                return partner_ids[0]
-            
-            # Create new partner
-            partner_id = self.models.execute_kw(
-                self.db, self.uid, self.password,
-                'res.partner', 'create',
-                [{
-                    'name': name,
-                    'supplier_rank': 1,
-                    'customer_rank': 0,
-                    'company_type': 'company'
-                }]
-            )
-            
-            return partner_id
-            
-        except Exception as e:
-            logger.error(f"Error creating partner: {e}")
-            # Return default partner (ID 1 is usually the main company)
-            return 1
-    
+        search = self._call_kw('res.partner', 'search', [[('name', '=', name)]])
+        if search: return search[0]
+        return self._call_kw('res.partner', 'create', [{'name': name}])
+
     def _get_or_create_product(self, name):
-        """Find or create a product"""
-        try:
-            # Search for existing product
-            product_ids = self.models.execute_kw(
-                self.db, self.uid, self.password,
-                'product.product', 'search',
-                [[('name', '=', name)]]
-            )
-            
-            if product_ids:
-                return product_ids[0]
-            
-            # Create new product
-            product_id = self.models.execute_kw(
-                self.db, self.uid, self.password,
-                'product.product', 'create',
-                [{
-                    'name': name,
-                    'type': 'consu',
-                    'purchase_ok': True,
-                    'sale_ok': False
-                }]
-            )
-            
-            return product_id
-            
-        except Exception as e:
-            logger.error(f"Error creating product: {e}")
-            # Return default product
-            return False
-    
-    def _get_expense_account(self):
-        """Get default expense account"""
-        try:
-            # Search for expense account
-            account_ids = self.models.execute_kw(
-                self.db, self.uid, self.password,
-                'account.account', 'search',
-                [[('account_type', '=', 'expense')]], {'limit': 1}
-            )
-            
-            if account_ids:
-                return account_ids[0]
-            
-            # Try alternative account type
-            account_ids = self.models.execute_kw(
-                self.db, self.uid, self.password,
-                'account.account', 'search',
-                [[('internal_type', '=', 'expense')]], {'limit': 1}
-            )
-            
-            if account_ids:
-                return account_ids[0]
-            
-            logger.error("No expense account found")
-            return False
-            
-        except Exception as e:
-            logger.error(f"Error getting expense account: {e}")
-            return False
-    
-    def _get_currency_id(self, currency_code):
-        """Get currency ID by code"""
-        try:
-            currency_ids = self.models.execute_kw(
-                self.db, self.uid, self.password,
-                'res.currency', 'search',
-                [[('name', '=', currency_code)]]
-            )
-            
-            if currency_ids:
-                return currency_ids[0]
-            
-            # Return company currency (usually ID 1)
-            return 1
-            
-        except Exception as e:
-            logger.error(f"Error getting currency: {e}")
-            return 1
+        search = self._call_kw('product.product', 'search', [[('name', '=', name)]])
+        if search: return search[0]
+        return self._call_kw('product.product', 'create', [{'name': name, 'type': 'consu'}])

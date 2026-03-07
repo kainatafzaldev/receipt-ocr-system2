@@ -1,4 +1,5 @@
 # main.py - COMPLETE RECEIPT OCR + ODOO INTEGRATION
+from dotenv import load_dotenv
 import os
 import base64
 import requests
@@ -21,7 +22,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load environment variables
-load_dotenv()
+env_path = os.path.join(os.path.dirname(__file__), '.env')
+print(f"🔍 Looking for .env at: {env_path}")
+print(f"🔍 File exists: {os.path.exists(env_path)}")
+
+load_dotenv(env_path)
 
 # Initialize scanner
 scanner = DocumentScanner()
@@ -49,14 +54,26 @@ VLM_MODEL = os.getenv('VLM_MODEL', 'qwen/qwen3-vl-235b-a22b-instruct')
 LLM_MODEL = os.getenv('LLM_MODEL', 'meta-llama/llama-3.3-70b-instruct')
 PORT = int(os.getenv('PORT', 5000))
 
-# Odoo Configuration
-ODOO_URL = os.getenv('ODOO_URL', 'http://localhost:8069')
-ODOO_DB = os.getenv('ODOO_DB', 'odoo')
-ODOO_USERNAME = os.getenv('ODOO_USERNAME', 'admin')
-ODOO_PASSWORD = os.getenv('ODOO_PASSWORD', 'admin')
+# Get Odoo credentials from environment variables
+ODOO_URL = os.getenv('ODOO_URL')
+ODOO_DB = os.getenv('ODOO_DB')
+ODOO_USERNAME = os.getenv('ODOO_USERNAME')
+ODOO_PASSWORD = os.getenv('ODOO_PASSWORD')
 
-# Initialize Odoo connector with config
-odoo = OdooConnector(ODOO_URL, ODOO_DB, ODOO_USERNAME, ODOO_PASSWORD)
+# USE the environment variables, not hardcoded values
+print("="*60)
+print("🔴 USING ENVIRONMENT VARIABLES FOR ODOO")
+print(f"URL: {ODOO_URL}")
+print(f"DB: {ODOO_DB}")
+print(f"Username: {ODOO_USERNAME}")
+print("="*60)
+
+odoo = OdooConnector(
+    url=ODOO_URL,
+    db=ODOO_DB,
+    username=ODOO_USERNAME,
+    password=ODOO_PASSWORD
+)
 
 # ==================== VALIDATION ====================
 def validate_api_key():
@@ -100,6 +117,48 @@ CRITICAL INSTRUCTIONS:
 Return ONLY the raw text with each complete element on its own line."""
 
 # ==================== VLM EXTRACTION FUNCTION ====================
+VLM_RECONCILIATION_PROMPT ="""You are a specialized Data Reconciliation AI for Odoo ERP. Your task is to take raw, messy OCR text and structure it into clean, accurate financial JSON for an account.move (Vendor Bill) object.
+
+Input Data:
+[PASTE YOUR RAW OCR TEXT HERE]
+
+Critical Task & Constraints:
+
+Strict Line Item Filtering: Identify individual product names, quantities, and unit prices.
+
+Summary Exclusion: Do NOT include "TOTAL", "SUBTOTAL", "TAX", "CASH", "CHANGE", or "BALANCE" as items inside the invoice_lines array. These are summary fields, not products.
+
+Handle POS Logic: If a "Markdown" or "Discount" appears under a product, include it in invoice_lines as a separate entry with a negative price_unit.
+
+Verification: Ensure the total_amount in the JSON header matches the "Grand Total" printed at the bottom of the receipt.
+
+Extraction Rules:
+
+invoice_lines: Each object must have a label, quantity, price_unit, and line_subtotal. Use only actual items purchased.
+
+Tax Mapping: Extract the printed tax amount into the tax_amount field only. Do not create a line item for it.
+
+Currency: Standardize to the detected 3-letter ISO code (e.g., PKR, USD).
+
+Formatting: Convert all dates to YYYY-MM-DD and ensure all numeric values are floats.
+
+Output Format: Return ONLY a valid JSON object. No conversational text, no markdown code blocks."""
+
+
+
+{
+  "vendor_name": "string",
+  "bill_reference": "string",
+  "bill_date": "YYYY-MM-DD",
+  "currency": "string",
+  "invoice_lines": [
+    {"label": "Product Description Only", "quantity": 0.0, "price_unit": 0.0, "line_subtotal": 0.0}
+  ],
+  "subtotal": 0.0,
+  "tax_amount": 0.0,
+  "total_amount": 0.0
+}
+
 def extract_text_with_vlm(base64_image):
     """Step 1: Use VLM to extract raw text from receipt image"""
     try:
@@ -209,41 +268,6 @@ def extract_text_with_vlm(base64_image):
         logger.error(f"❌ VLM Error: {str(e)}")
         return False, f"VLM error: {str(e)}"
 
-# ==================== OCR DIGIT CORRECTOR ====================
-class OCRDigitCorrector:
-    def correct_text(self, text):
-        if not text:
-            return text
-        
-        corrected = text
-        replacements = {
-            '9895': '9995',
-            '9995': '9895',
-            '225': '235',
-            '235': '225',
-        }
-        
-        for old, new in replacements.items():
-            corrected = corrected.replace(old, new)
-        
-        try:
-            import re
-            lines = corrected.split('\n')
-            fixed_lines = []
-            
-            for line in lines:
-                def fix_decimal(match):
-                    return f"{match.group(1)}.{match.group(2)}0"
-                line = re.sub(r'(\d+)\.(\d{1})\b', fix_decimal, line)
-                fixed_lines.append(line)
-            
-            corrected = '\n'.join(fixed_lines)
-        except:
-            pass
-        
-        return corrected
-
-digit_corrector = OCRDigitCorrector()
 
 # ==================== CURRENCY DETECTION ====================
 def detect_currency(raw_text, formatted_currency=None):
@@ -375,6 +399,8 @@ def filter_odoo_items(items):
     logger.info(f"📊 Filtering complete: {len(filtered_items)}/{len(items)} items kept for Odoo")
     return filtered_items
 
+ 
+   
 # ==================== PREPARE ODOO DATA ====================
 def prepare_odoo_data(receipt_data):
     """
@@ -430,6 +456,7 @@ def prepare_odoo_data(receipt_data):
         
         logger.info(f"\n📊 Found {len(items)} items and {len(prices)} prices")
         
+        
         # Step 2: Identify REAL items
         real_items = []
         item_prices = []
@@ -451,7 +478,7 @@ def prepare_odoo_data(receipt_data):
             if any(x in item_lower for x in [
                 'tax', 'total', 'subtotal', 'cash', 'cg', 'change',
                 'here:', '*here:', 'here tax', '*here: tax',
-                'atm', 'fee', 'tip', 'credit', 'debit', 'payment'
+                'fee', 'tip', 'credit', 'debit', 'payment'
             ]):
                 logger.info(f"🚫 EXCLUDING non-item: {item}")
                 continue
@@ -559,23 +586,7 @@ def prepare_odoo_data(receipt_data):
         traceback.print_exc()
         return None
 
-# ==================== FALLBACK PARSER ====================
-def fallback_parse_receipt(raw_text):
-    """Fallback parser that extracts ALL product items and tax"""
-    logger.info(f"🔧 Using fallback parser...")
-    
-    result = {
-        'vendor_name': 'Unknown Vendor',
-        'bill_reference': '',
-        'bill_date': datetime.now().strftime('%Y-%m-%d'),
-        'currency': 'USD',
-        'invoice_lines': [],
-        'subtotal': 0,
-        'tax_amount': 0,
-        'total_amount': 0
-    }
-    
-    return result
+
 
 # ==================== ITEM RECONSTRUCTION ====================
 def reconstruct_items_from_raw_text(raw_text):
@@ -667,8 +678,8 @@ def process_receipt():
         raw_text = vlm_result['text']
         
         # Apply digit correction
-        raw_text = digit_corrector.correct_text(raw_text)
-        
+       
+    
         logger.info(f"🔧 Reconstructing items...")
         reconstructed_lines = reconstruct_items_from_raw_text(raw_text)
         raw_text = '\n'.join(reconstructed_lines)
@@ -708,50 +719,37 @@ def upload_to_odoo():
     
     try:
         data = request.get_json()
-        if not data or 'receipt_data' not in data:
-            return jsonify({'success': False, 'error': 'No receipt data'}), 400
+        receipt_data = data.get('receipt_data', data)
+            
+        odoo_connector = OdooConnector(
+            data.get('odoo_url'), data.get('odoo_db'), 
+            data.get('odoo_username'), data.get('odoo_password')
+        )
         
-        receipt_data = data['receipt_data']
-        original_image = data.get('original_image')
-        
-        # Get Odoo credentials from request or use defaults
-        odoo_url = data.get('odoo_url', ODOO_URL)
-        odoo_db = data.get('odoo_db', ODOO_DB)
-        odoo_username = data.get('odoo_username', ODOO_USERNAME)
-        odoo_password = data.get('odoo_password', ODOO_PASSWORD)
-        
-        odoo_connector = OdooConnector(odoo_url, odoo_db, odoo_username, odoo_password)
+        # --- PLACE THE DEBUG LINE HERE (in the route, not the function) ---
+        logger.info(f"DEBUG: Attempting Odoo connection with URL: {data.get('odoo_url')}, DB: {data.get('odoo_db')}, User: {data.get('odoo_username')}")
         
         if not odoo_connector.connect():
-            return jsonify({'success': False, 'error': 'Odoo connection failed'}), 500
+            logger.error("❌ CRITICAL: Could not connect to Odoo.")
+            return jsonify({'success': False, 'error': 'Could not connect to Odoo'}), 500
+        
+        # Check permissions for creating vendor bills (account.move)
+        has_access = odoo_connector.check_access_rights('account.move', 'create')
+        logger.info(f"🔑 User has 'create' access for account.move: {has_access}")
+        
+        if not has_access:
+             return jsonify({'success': False, 'error': 'User lacks permission to create Vendor Bills'}), 403
+        # ----------------------------
         
         odoo_data = prepare_odoo_data(receipt_data)
-        
-        if not odoo_data:
-            return jsonify({'success': False, 'error': 'Failed to prepare data'}), 500
-        
         bill_result = odoo_connector.create_vendor_bill(odoo_data)
         
         if bill_result:
-            if original_image:
-                odoo_connector.attach_receipt_to_bill(
-                    bill_id=bill_result['id'],
-                    receipt_image_base64=original_image
-                )
-            
-            return jsonify({
-                'success': True,
-                'message': 'Bill created successfully',
-                'bill_id': bill_result.get('id'),
-                'bill_number': bill_result.get('number'),
-                'bill_url': bill_result.get('url')
-            })
-        else:
-            return jsonify({'success': False, 'error': 'Failed to create bill'}), 500
+            return jsonify({'success': True, 'bill_id': bill_result['id']})
+
+        return jsonify({'success': False, 'error': 'Failed to create bill'}), 500
             
     except Exception as e:
-        logger.error(f"Upload error: {str(e)}")
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/odoo/test-connection', methods=['POST', 'OPTIONS'])
