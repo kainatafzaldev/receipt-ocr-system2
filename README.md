@@ -1,542 +1,249 @@
-# 📋 OCR Receipt Processor - Complete Guide
+# Receipt OCR + Odoo Integration
 
-> **An intelligent system to extract receipt data using AI OCR and prepare it for Odoo ERP integration**
+A powerful receipt processing system that extracts text from receipt images using AI and integrates with Odoo ERP for automated vendor bill creation.
 
-![Status](https://img.shields.io/badge/Status-Ready-brightgreen)
-![Python](https://img.shields.io/badge/Python-3.7+-blue)
-![Flask](https://img.shields.io/badge/Flask-2.3.3-lightblue)
+## 📋 Features
 
----
+- **OCR Processing**: Uses Novita.ai Vision API to extract text from receipt images
+- **Image Preprocessing**: Automatic enhancement for blurry, wrinkled, or low-quality receipts
+- **Smart Filtering**: Automatically filters out non-item lines (taxes, totals, store info, etc.)
+- **Odoo Integration**: Creates vendor bills directly in Odoo
+- **Image Attachment**: Attaches original receipt images to Odoo bills
+- **Quality Assessment**: Checks image quality and applies preprocessing only when needed
 
-## 🎯 **What This Application Does**
+## 🏗️ Project Structurebackend/
+├── main.py # Main Flask application
+├── odoo_integration.py # Odoo connection and bill creation
+├── image_preprocessor.py # Image enhancement and preprocessing
+├── document_scanner.py # Document scanning utilities
+├── requirements.txt # Python dependencies
+├── .env # Environment variables (not in repo)
+└── README.md # This documentation
 
-This application provides a complete solution for receipt data extraction:
 
-```
-1. Upload receipt image (JPG, PNG, GIF, WebP, PDF)
-   ↓
-2. AI processes image using DeepSeek OCR
-   ↓
-3. Extracts ALL data: vendor, items, prices, dates, taxes
-   ↓
-4. Displays formatted extracted information
-   ↓
-5. Ready to upload to Odoo ERP (when integrated)
-```
+## 🚀 Installation
 
-### ✨ **Key Features**
+### Prerequisites
+- Python 3.8+
+- Tesseract OCR (optional, for backup)
+- Odoo instance (v16+)
 
-- 🖼️ **Drag & Drop Upload** - Simple image upload interface
-- 🤖 **AI-Powered OCR** - Uses DeepSeek OCR-2 model from Novita AI
-- 📊 **Smart Data Extraction** - Automatically parses items, prices, totals, dates
-- 💼 **Vendor Information** - Extracts store name, address, phone, email
-- 💰 **Financial Details** - Subtotal, taxes, tips, payment methods
-- 📈 **Analysis Cards** - Visual display of extracted data
-- 🔗 **Odoo Ready** - Data formatted for Odoo ERP integration
-- 🌐 **Web Interface** - Modern, responsive UI
-- ⚡ **Fast Processing** - Usually processes receipts in 2-5 seconds
+### Setup
 
----
-
-## 📁 **Project Structure**
-
-```
-OCR_Project/
-├── 📄 START_SERVER.bat          ← Double-click to start (Windows)
-├── 📄 test_system.py             ← Run tests to verify everything works
-├── 📄 QUICKSTART.md              ← Quick start guide
-├── 📄 INTEGRATION_STATUS.md      ← Detailed integration info
-├── 📄 requirements.txt           ← Python dependencies
-│
-├── frontend/
-│   ├── index.html    ← Web interface (HTML)
-│   ├── script.js     ← JavaScript logic
-│   └── style.css     ← Styling
-│
-└── backend/
-    ├── main.py                   ← Flask server (MAIN FILE)
-    ├── ocr_extractor.py          ← OCR logic
-    ├── receipt_parser.py         ← Data parsing
-    ├── .env                      ← Configuration (API keys)
-    ├── requirements.txt          ← Python packages
-    └── .venv/                    ← Virtual environment
-```
-
----
-
-## 🚀 **Quick Start (5 Minutes)**
-
-### **Step 1: Get API Key** (First Time)
-1. Go to https://novita.ai/
-2. Sign up or login
-3. Get your API key
-4. Update `backend/.env`:
-   ```
-   NOVITA_API_KEY=paste_your_key_here
-   ```
-
-### **Step 2: Start Server** (Every Time)
-**Windows**: Double-click **`START_SERVER.bat`**
-
-Or manually:
+1. **Clone the repository**
 ```bash
-cd backend
-python main.py
-```
+git clone https://github.com/kainatafzaldev/receipt-ocr-system2.git
+cd receipt-ocr-system2/backend
 
-### **Step 3: Open Browser**
-Go to: **http://localhost:5000**
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
 
-### **Step 4: Test**
-1. Upload a receipt image
-2. Click "Process Receipt"
-3. View extracted data
+##Create .env file
 
----
-
-## 📖 **Detailed Documentation**
-
-### For Quick Start & Troubleshooting
-See 📖 **[QUICKSTART.md](QUICKSTART.md)**
-- Setup instructions
-- How to use the application
-- Common errors and fixes
-- Tips and tricks
-
-### For Integration Details
-See 📖 **[INTEGRATION_STATUS.md](INTEGRATION_STATUS.md)**
-- Complete data flow
-- API endpoints
-- Response formats
-- Testing checklist
-- Optional features
-
----
-
-## 🔧 **System Components**
-
-### **Frontend (Web Interface)**
-- **Location**: `frontend/` folder
-- **Tech**: HTML5, CSS3, Vanilla JavaScript
-- **Features**:
-  - File upload with drag-drop
-  - Image preview
-  - Backend status monitoring
-  - Receipt data display
-  - Analysis cards
-  - Odoo integration UI
-
-### **Backend (API Server)**
-- **Location**: `backend/main.py`
-- **Tech**: Flask (Python web framework)
-- **Port**: 5000
-- **Features**:
-  - Serves frontend files
-  - Handles image upload
-  - Calls Novita AI OCR API
-  - Cleans and formats text
-  - Returns JSON responses
-  - CORS enabled
-
-### **OCR Engine**
-- **Provider**: Novita AI
-- **Model**: DeepSeek OCR-2
-- **Supports**: English, Arabic, Urdu, and 50+ languages
-- **Input**: Base64-encoded images
-- **Output**: Extracted text
-
-### **Data Pipeline**
-- **OCR Extraction**: `ocr_extractor.py`
-- **Receipt Parsing**: `receipt_parser.py`
-- **Data Analysis**: `script.js` (frontend)
-
----
-
-## 🔌 **API Endpoints**
-
-### Health Check
-```
-GET http://localhost:5000/api/health
-```
-Returns: Backend status, API key configuration, server time
-
-### Process Receipt (Main)
-```
-POST http://localhost:5000/api/process-receipt
-Content-Type: application/json
-
-{ "image": "data:image/png;base64,..." }
-```
-Returns: Extracted text, analytics, tokens used
-
-### API Info
-```
-GET http://localhost:5000/api
-```
-Returns: Service information, available endpoints, configuration
-
-### Test Endpoint
-```
-GET http://localhost:5000/api/test
-```
-Returns: Simple success response, useful for testing
-
----
-
-## 🧪 **Testing the System**
-
-### **Quick Test**
-```bash
-python test_system.py
-```
-This will:
-- ✅ Check if backend is running
-- ✅ Test all API endpoints
-- ✅ Verify frontend serving
-- ✅ Test OCR processing (if test image exists)
-
-### **Manual Testing**
-1. Start backend: `python backend/main.py`
-2. Open http://localhost:5000 in browser
-3. Check "Backend: ✅ Connected" at top
-4. Upload a receipt image
-5. Click "Process Receipt"
-6. Verify data displays
-
-### **Network Testing** (Browser Developer Tools)
-1. Press `F12` to open Developer Tools
-2. Go to "Network" tab
-3. Processing should show:
-   - `POST /api/process-receipt` ← Your image
-   - Response contains extracted data
-
----
-
-## ⚙️ **Configuration**
-
-### Environment Variables
-File: `backend/.env`
-
-```dotenv
-# Novita AI API Configuration
-NOVITA_API_KEY=sk_xxx          # Get from https://novita.ai/
-MODEL_NAME=deepseek/deepseek-ocr-2
-
-# Odoo Configuration (for integration)
-ODOO_URL=https://example.odoo.com/
-ODOO_DB=database_name
-ODOO_USERNAME=user@example.com
-ODOO_PASSWORD=password
+# Novita AI API Configuration (supports DeepSeek models)
+NOVITA_API_KEY=sk_W9itWypRe9KoDG5m8difsYrN4_GwoDTiB4jKOY7hFYs
+OPENROUTER_API_KEY=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
+API_BASE_URL=https://api.novita.ai/v3/openai
+MODEL_NAME=qwen/qwen3-vl-235b-a22b-instruct
+# Odoo ERP Configuration
+#ODOO_URL=https://epic-marketing1.odoo.com/
+#ODOO_DB=epic-marketing1
+#ODOO_USERNAME=haris.herry@gmail.com
+#ODOO_PASSWORD=Honda125
 
 # Server Configuration
-PORT=5000
-DEBUG=True
-UPLOAD_FOLDER=uploads
-ALLOWED_EXTENSIONS=png,jpg,jpeg,gif,webp
-MAX_FILE_SIZE=10485760  # 10MB
-```
+#PORT=5000
+#DEBUG=True
 
-### Getting API Key
-1. Visit https://novita.ai/
-2. Create account (free)
-3. Navigate to API keys
-4. Copy the key starting with `sk_`
-5. Paste into `backend/.env`
 
----
 
-## 🐛 **Troubleshooting**
+# Application Settings
+#UPLOAD_FOLDER=uploads
+#ALLOWED_EXTENSIONS=png,jpg,jpeg,gif,webp
+#MAX_FILE_SIZE=10485760  # 10MB
+#TIMEOUT=120
 
-### **Cannot Connect to Backend**
-```bash
-# Make sure backend is running:
-cd backend
+
+
+ODOO_URL=https://kainatecos1.odoo.com
+ODOO_DB=kainatecos1
+ODOO_USERNAME=kainatcecos17@gmail.com
+ODOO_PASSWORD=ThePasswordYouJustSet
+
+ Usage
+Start the Flask server
+
+
 python main.py
 
-# Should see: "Running on http://127.0.0.1:5000"
-```
-
-### **"Invalid API key" Error**
-1. Check `.env` file in backend folder
-2. Verify key starts with `sk_`
-3. Make sure it's not truncated
-4. Restart backend after updating
-
-### **"No text extracted" from Receipt**
-- Image might be blurry or low quality
-- Try clearer, well-lit photo
-- Straight angle (not tilted)
-- Ensure receipt is fully visible
-
-### **Processing Takes Too Long**
-- Image might be very large → compress it
-- Receipt might have 100+ items → wait longer
-- Internet might be slow → check connection
-
-### **Port 5000 Already in Use**
-```bash
-# Windows - find what's using port 5000:
-netstat -ano | findstr :5000
-
-# Kill the process:
-taskkill /PID <PID> /F
-
-# Or change PORT in .env to 5001
-```
-
----
-
-## 📊 **Data Extraction Examples**
-
-### What Gets Extracted:
-```
-Vendor Information:
-  - Store/Vendor name
-  - Address
-  - Phone number
-  - Email
-
-Date & Time:
-  - Transaction date
-  - Transaction time
-
-Items:
-  - Product names
-  - Quantities
-  - Unit prices
-  - Line subtotals
-
-Financial Summary:
-  - Subtotal
-  - Tax (with percentage if available)
-  - Tips
-  - Total amount
-  - Payment method & last 4 digits
-
-Receipt Analysis:
-  - Receipt type (restaurant, retail, etc.)
-  - Item count
-  - Amount statistics
-```
-
-### Example Response:
-```json
-{
-  "success": true,
-  "data": {
-    "text": "STORE NAME\n123 Main St\n...\nTOTAL: $45.99",
-    "raw_text": "[original OCR output]",
-    "tokens_used": 156,
-    "model": "deepseek/deepseek-ocr-2"
-  },
-  "processing_time_seconds": 2.34
-}
-```
-
----
-
-## 🎓 **For Developers**
-
-### Adding New Features
-1. Backend features → Edit `backend/main.py`
-2. Frontend features → Edit `frontend/script.js`
-3. OCR logic → Edit `backend/ocr_extractor.py`
-4. Data parsing → Edit `backend/receipt_parser.py`
-
-### API Response Format
-All endpoints return JSON:
-```json
-{
-  "success": true/false,
-  "message": "...",
-  "data": { ... },
-  "error": "... (if failed)",
-  "timestamp": "ISO-8601 datetime"
-}
-```
-
-### Adding Odoo Integration
-1. Install `xmlrpc` library
-2. Create endpoint: `POST /api/upload-to-odoo`
-3. Use `receipt_parser.py` to format data
-4. Connect to Odoo XML-RPC API
-5. Create vendor bills
-
----
-
-## 📈 **Performance Metrics**
-
-- **Average processing time**: 2-5 seconds
-- **Max supported file size**: 10MB
-- **Supported file formats**: JPG, PNG, GIF, WebP, PDF
-- **API timeout**: 45 seconds
-- **Max tokens per request**: 1500
-
----
-
-## 🛡️ **Security Notes**
-
-- API key stored in `.env` (not in code)
-- CORS enabled for localhost (configure for production)
-- No data stored on server (stateless)
-- Images deleted from memory after processing
-- Use HTTPS in production
-
----
-
-## 📚 **Dependencies**
-
-### Python Packages
-- **Flask** - Web framework
-- **Flask-CORS** - Cross-origin support
-- **python-dotenv** - Environment variables
-- **Pillow** - Image processing
-- **requests** - HTTP requests
-- **Werkzeug** - WSGI utilities
-
-### Frontend
-- HTML5/CSS3/JavaScript (no build process needed)
-- Bootstrap Icons (CDN)
-- Google Fonts (CDN)
-
----
-
-## 🚀 **Deployment**
-
-### For Production:
-1. Set `DEBUG=False` in `.env`
-2. Use production WSGI server: `gunicorn main.py`
-3. Enable HTTPS/SSL
-4. Use a reverse proxy (nginx, Apache)
-5. Configure CORS for your domain
-6. Use environment-specific `.env` files
-
-### For Heroku:
-1. Add `Procfile`: `web: gunicorn main:app`
-2. Add `runtime.txt`: `python-3.11.0`
-3. Deploy via Git
-
----
-
-## 📝 **Checklist for Deployment**
-
-- [ ] Tested with real receipts
-- [ ] API key configured and valid
-- [ ] Backend runs without errors
-- [ ] Frontend loads correctly
-- [ ] Can upload and process images
-- [ ] Data displays correctly
-- [ ] Error handling works
-- [ ] CORS configured for target domain
-- [ ] DEBUG set to False
-- [ ] HTTPS enabled (if production)
-
----
-
-## 💡 **Tips**
-
-1. **Best Receipt Photos**:
-   - Well-lit (natural light)
-   - Straight angle (not tilted)
-   - Entire receipt visible
-   - Focus sharp (not blurry)
 
-2. **Faster Processing**:
-   - Compress images
-   - Use JPG instead of PNG
-   - Keep receipts smaller (crop edges)
+Access the web interface
+Open browser and navigate to http://localhost:5000
 
-3. **Better Extraction**:
-   - High resolution photos
-   - Printed receipts (not handwritten)
-   - Good quality paper
-   - Dark text on light background
+Process a receipt
 
-4. **Odoo Integration**:
-   - Can create vendor bills automatically
-   - Data maps to Odoo fields
-   - Reduces manual data entry
-   - Improves accuracy
+Upload a receipt image
 
----
+Click "Process Receipt"
 
-## 📞 **Support & Help**
+Review extracted text
 
-### Check Status:
-1. Open http://localhost:5000
-2. Look at "Connection Status" section
-3. Backend should show ✅ Connected
-4. API Key should show ✅ Known
+Click "Upload to Odoo"
 
-### View Logs:
-1. Terminal where backend is running
-2. Shows requests, processing, errors
-3. Very helpful for debugging
+View in Odoo
 
-### Browser Console:
-1. Press F12 in browser
-2. Go to "Console" tab
-3. Shows JavaScript errors
-4. Shows API responses
+Click the "View Bill in Odoo" link
 
-### Network Debugging:
-1. Press F12 in browser
-2. Go to "Network" tab
-3. Click "Process Receipt"
-4. See HTTP requests and responses
+Review and edit the bill as needed
 
----
+Confirm/Post the bill
 
-## 📄 **License & Attribution**
+⚙️ Configuration Options
+Image Preprocessing
+The system automatically checks image quality and applies preprocessing when needed:
 
-- **Frontend**: Custom built for this project
-- **Backend**: Flask + custom Python
-- **OCR**: DeepSeek by Novita AI
-- **CSS Framework**: Custom styling
+Resolution enhancement: Upscales low-resolution images
 
----
+Skew correction: Straightens tilted receipts
 
-## ✅ **What You Can Do Right Now**
+Noise removal: Cleans up grainy backgrounds
 
-1. ✅ Upload receipt images
-2. ✅ Extract text using AI
-3. ✅ View detailed analysis
-4. ✅ See vendor information
-5. ✅ Find items and prices
-6. ✅ Get financial summary
-7. ✅ Preview payment info
-8. ✅ Check processing time
-9. ✅ Test with multiple receipts
-10. ✅ Download results (future feature)
+Contrast enhancement: Improves text readability
 
----
+Shadow removal: Eliminates uneven lighting
 
-## 🎯 **Next Steps**
+Filtering Rules
+The system filters out non-item lines including:
 
-1. **Test the system** - Run `python test_system.py`
-2. **Upload a receipt** - Use http://localhost:5000
-3. **Verify results** - Check extracted data accuracy
-4. **Set up Odoo** - (Optional) Integrate with your Odoo instance
-5. **Customize prompts** - Adjust OCR prompt in `ocr_extractor.py` if needed
+Restaurant/store names
 
----
+Addresses and phone numbers
 
-## 📊 **Version Info**
+Tax lines and calculations
 
-- **Version**: 1.0.0
-- **Last Updated**: February 11, 2026
-- **Status**: ✅ Production Ready
-- **Python**: 3.7+
-- **Flask**: 2.3.3
+Subtotal and total lines
 
----
+Payment information
 
-## 🙏 **Acknowledgments**
+Thank you messages
 
-- **Novita AI** - For DeepSeek OCR-2 model
-- **Flask Team** - For excellent web framework
-- **Contributors** - For testing and feedback
 
----
 
-**Made with ❤️ for efficient receipt processing**
+
+ API Endpoints
+Endpoint	                        Method	                           Description
+/api/health	                       GET	                             Check backend status
+/api/process-receipt	             POST                              Process receipt image
+/api/odoo/upload	                 POST	                             Upload to Odoo
+/api/odoo/test-connection        	 POST                         	   Test Odoo connection
+/api/test-novita	                 GET                               Test Novita.ai API
+
+
+ Troubleshooting
+Common Issues
+Connection Status shows "Offline"
+
+Check if Flask server is running
+
+Verify BACKEND_URL in script.js
+
+Check CORS configuration
+
+Odoo authentication fails
+
+Verify credentials in .env
+
+For Odoo.com instances, use API key instead of password
+
+Check if user has API access enabled
+
+No items extracted
+
+Check image quality
+
+Review VLM prompt settings
+
+Adjust filtering keywords
+
+Image attachment fails
+
+Verify Odoo version compatibility
+
+Check file size limits
+
+Ensure proper base64 encoding
+
+🤝 Contributing
+Fork the repository
+
+Create a feature branch
+
+Commit your changes
+
+Push to the branch
+
+Open a Pull Request
+
+📝 License
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+👥 Authors
+Kainat Afzal - Initial work - GitHub
+
+🙏 Acknowledgments
+Novita.ai for Vision API services
+
+Odoo Community for ERP platform
+
+OpenCV community for image processing tools
+
+📞 Support
+For issues or questions:
+
+Open an issue on GitHub
+
+Contact: [kainatcecos17@gmail.com]
+
+
+Version: 1.0.0
+Last Updated: March 2026
+
+
+## **Also create a `requirements.txt` file:**
+
+```txt
+Flask==3.0.0
+Flask-CORS==4.0.1
+python-dotenv==1.0.0
+requests==2.31.0
+Pillow==10.1.0
+opencv-python==4.8.1.78
+opencv-contrib-python==4.8.1.78
+numpy==1.26.2
+pytesseract==0.3.10
+
+LICENSE file (optional):
+MIT License
+
+Copyright (c) 2026 Kainat Afzal
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
