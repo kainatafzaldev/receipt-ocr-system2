@@ -1,0 +1,39 @@
+time="2026-03-13T10:40:27+05:00" level=warning msg="C:\\Users\\Kainat\\Documents\\OCR_Project\\backend\\docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+name: backend
+services:
+  receipt-ocr-app:
+    build:
+      context: C:\Users\Kainat\Documents\OCR_Project\backend\backend
+      dockerfile: Dockerfile
+    container_name: receipt-ocr-system
+    environment:
+      LLM_MODEL: meta-llama/llama-3.3-70b-instruct
+      NOVITA_API_BASE: https://api.novita.ai/v3/openai
+      NOVITA_API_KEY: sk_W9itWypRe9KoDG5m8difsYrN4_GwoDTiB4jKOY7hFYs
+      ODOO_DB: kainatcecos4
+      ODOO_PASSWORD: bd76bf7680e49f10a6d323d53c8f69b620a9c3ca
+      ODOO_URL: https://kainatcecos4.odoo.com
+      ODOO_USERNAME: kainatcecos17@gmail.com
+      PORT: "5000"
+      VLM_MODEL: qwen/qwen3-vl-235b-a22b-instruct
+    networks:
+      receipt-network: null
+    ports:
+      - mode: ingress
+        target: 5000
+        published: "5000"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: C:\Users\Kainat\Documents\OCR_Project\backend\backend\uploads
+        target: /app/uploads
+        bind: {}
+      - type: bind
+        source: C:\Users\Kainat\Documents\OCR_Project\backend\backend\.env
+        target: /app/.env
+        bind: {}
+networks:
+  receipt-network:
+    name: backend_receipt-network
+    driver: bridge

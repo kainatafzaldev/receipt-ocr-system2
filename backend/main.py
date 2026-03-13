@@ -31,6 +31,165 @@ print(f"🔍 File exists: {os.path.exists(env_path)}")
 
 load_dotenv(env_path)
 
+# ==================== DISCOUNT DETECTION CONSTANTS ====================
+DISCOUNT_WORDS = [
+    "OFF", "DISCOUNT", "PROMO", "COUPON",
+    "MARKDOWN", "SAVING", "REBATE"
+]
+
+IGNORE_WORDS = [
+    "TIP", "TIP GUIDE", "GRATUITY", "CHANGE",
+    "CASH", "CARD", "AUTH", "BARCODE"
+]
+
+# ==================== DISCOUNT DETECTION FUNCTIONS ====================
+def normalize_lines(text):
+    """Convert OCR text into clean lines"""
+    lines = text.split("\n")
+    return [l.strip() for l in lines if l.strip()]
+
+def contains_ignore_word(line):
+    line = line.upper()
+    return any(word in line for word in IGNORE_WORDS)
+
+def contains_discount_word(line):
+    line = line.upper()
+    return any(word in line for word in DISCOUNT_WORDS)
+
+def extract_prices(line):
+    """Extract all prices from line"""
+    return re.findall(r"-?\d+\.\d{2}", line)
+
+def extract_quantity(line):
+    """Detect quantity at beginning of line"""
+    match = re.match(r"^\d+", line)
+    if match:
+        return int(match.group())
+    return 1
+def detect_discount(line):
+    line_upper = line.upper()
+
+    if "OFF" in line_upper or "DISCOUNT" in line_upper or "PROMO" in line_upper:
+        return True
+
+    if re.search(r"\d+%\s*OFF", line_upper):
+        return True
+
+    return False
+
+
+def parse_receipt_dynamic(ocr_text):
+    """Parse receipt with discount detection"""
+    lines = normalize_lines(ocr_text)
+
+    invoice_lines = []
+    subtotal = None
+    tax = None
+    total = None
+
+    for line in lines:
+
+        if contains_ignore_word(line):
+            continue
+
+        upper = line.upper()
+
+        # SUBTOTAL
+        if "SUBTOTAL" in upper:
+            price = extract_prices(line)
+            if price:
+                subtotal = float(price[-1])
+            continue
+
+        # TAX
+        if "TAX" in upper:
+            price = extract_prices(line)
+            if price:
+                tax = float(price[-1])
+            continue
+
+        # TOTAL
+        if "TOTAL" in upper:
+            price = extract_prices(line)
+            if price:
+                total = float(price[-1])
+            continue
+
+def parse_receipt_dynamic(ocr_text):
+    """Parse receipt with discount detection"""
+    lines = normalize_lines(ocr_text)
+
+    invoice_lines = []
+    subtotal = None
+    tax = None
+    total = None
+
+    for line in lines:
+
+        if contains_ignore_word(line):
+            continue
+
+        upper = line.upper()
+
+        # SUBTOTAL
+        if "SUBTOTAL" in upper:
+            price = extract_prices(line)
+            if price:
+                subtotal = float(price[-1])
+            continue
+
+        # TAX
+        if "TAX" in upper:
+            price = extract_prices(line)
+            if price:
+                tax = float(price[-1])
+            continue
+
+        # TOTAL
+        if "TOTAL" in upper:
+            price = extract_prices(line)
+            if price:
+                total = float(price[-1])
+            continue
+
+        prices = extract_prices(line)
+
+        if not prices:
+            continue
+
+        quantity = extract_quantity(line)
+        price = float(prices[-1])
+
+        # DISCOUNT LINE
+        if detect_discount(line):
+
+            # 🔥 Force negative price for discount
+            price = -abs(price)
+
+            invoice_lines.append({
+                "label": line,
+                "quantity": 1,
+                "price_unit": price,
+                "is_discount": True
+            })
+
+        else:
+            unit_price = price / quantity if quantity else price
+
+            invoice_lines.append({
+                "label": line,
+                "quantity": quantity,
+                "price_unit": round(unit_price, 2),
+                "is_discount": False
+            })
+
+    return {
+        "invoice_lines": invoice_lines,
+        "subtotal": subtotal,
+        "tax_amount": tax,
+        "total_amount": total
+    }     
+
 def fix_alignment_dynamic(raw_text):
     """
     Dynamically fix alignment issues WITHOUT any hardcoding
@@ -622,7 +781,6 @@ def filter_odoo_items(items):
         'cash back', 'cashback',
         
         # Fees and charges
-         
         'service charge', 'convenience fee', 'processing fee',
         'delivery fee', 'shipping fee', 'handling fee',
         
@@ -704,160 +862,238 @@ def filter_odoo_items(items):
     logger.info(f"📊 Filtering complete: {len(filtered_items)}/{len(items)} items kept for Odoo")
     return filtered_items
 
- 
-   
+# ==================== TRULY DYNAMIC RECEIPT PARSER ====================
+def dynamic_receipt_parser(raw_text):
+    """
+    Dynamically parse ANY receipt format without hardcoding
+    Uses statistical analysis and pattern recognition
+    """
+    lines = raw_text.split('\n')
+    lines = [line.strip() for line in lines if line.strip()]
+    
+    logger.info("=" * 60)
+    logger.info("🔍 DYNAMIC RECEIPT PARSER")
+    logger.info(f"Processing {len(lines)} lines")
+    
+    # STEP 1: Analyze line patterns
+    line_analysis = []
+    for line in lines:
+        analysis = {
+            'text': line,
+            'length': len(line),
+            'word_count': len(line.split()),
+            'has_digits': bool(re.search(r'\d', line)),
+            'digit_count': len(re.findall(r'\d', line)),
+            'has_currency': bool(re.search(r'[$€£₹]', line)),
+            'has_alpha': bool(re.search(r'[A-Za-z]', line)),
+            'possible_price': extract_possible_price(line),
+            'is_likely_metadata': False
+        }
+        line_analysis.append(analysis)
+    
+    # STEP 2: Detect price lines
+    price_lines = []
+    for i, analysis in enumerate(line_analysis):
+        if analysis['possible_price']:
+            price = analysis['possible_price']
+            if 0.01 < price < 10000:
+                price_lines.append({
+                    'index': i,
+                    'price': price,
+                    'text': analysis['text']
+                })
+    
+    logger.info(f"💰 Found {len(price_lines)} potential price lines")
+    
+    # STEP 3: Detect metadata patterns statistically
+    avg_length = sum(a['length'] for a in line_analysis) / len(line_analysis) if line_analysis else 0
+    avg_word_count = sum(a['word_count'] for a in line_analysis) / len(line_analysis) if line_analysis else 0
+    
+    for i, analysis in enumerate(line_analysis):
+        if analysis['length'] < avg_length * 0.5 or analysis['length'] > avg_length * 1.5:
+            analysis['is_likely_metadata'] = True
+        if analysis['digit_count'] > 3 and not analysis['has_alpha']:
+            analysis['is_likely_metadata'] = True
+    
+    # STEP 4: Find item names
+    items = []
+    
+    for price_info in price_lines:
+        price_idx = price_info['index']
+        price = price_info['price']
+        
+        best_item = None
+        best_score = 0
+        
+        for lookback in range(1, min(6, price_idx + 1)):
+            candidate_idx = price_idx - lookback
+            candidate = line_analysis[candidate_idx]
+            
+            if candidate['is_likely_metadata']:
+                continue
+            
+            score = 0
+            if candidate['has_alpha']:
+                score += 3
+            if 5 < candidate['length'] < 50:
+                score += 2
+            if not candidate['possible_price']:
+                score += 2
+            score += (5 - lookback)
+            
+            if score > best_score:
+                best_score = score
+                best_item = candidate['text']
+        
+        if best_item and best_score > 5:
+            quantity = 1
+            if price_idx > 1:
+                prev_line = line_analysis[price_idx - 1]['text']
+                qty_match = re.match(r'^(\d+\.?\d*)$', prev_line)
+                if qty_match:
+                    qty = float(qty_match.group(1))
+                    if 1 <= qty <= 100:
+                        quantity = qty
+            
+            clean_name = re.sub(r'^[\d\s]+', '', best_item)
+            clean_name = re.sub(r'[$€£₹]', '', clean_name)
+            clean_name = clean_name.strip()
+            
+            items.append({
+                'label': clean_name[:100],
+                'quantity': int(quantity) if quantity.is_integer() else quantity,
+                'price_unit': round(price / quantity, 2),
+                'original_line': best_item
+            })
+            
+            logger.info(f"✅ Found: '{clean_name}' | Qty: {quantity} | Price: ${price}")
+    
+    # STEP 5: Statistical filtering
+    if items:
+        avg_price = sum(item['price_unit'] for item in items) / len(items)
+        filtered_items = [
+            item for item in items 
+            if 0.01 < item['price_unit'] < avg_price * 10
+        ]
+        logger.info(f"📊 After filtering: {len(filtered_items)} items")
+        return filtered_items
+    
+    return []
 
-# ==================== PREPARE ODOO DATA - ONLY REAL ITEMS ====================
+# ========== ALSO ADD THIS HELPER FUNCTION ==========
+def extract_possible_price(text):
+    """Extract a possible price from text"""
+    clean = re.sub(r'[$€£₹,]', '', text)
+    matches = re.findall(r'\d+\.?\d*', clean)
+    if matches:
+        try:
+            return float(matches[-1])
+        except:
+            pass
+    return None
+
+# ==================== PREPARE ODOO DATA - COMPLETE MERGED VERSION ====================
 def prepare_odoo_data(receipt_data):
     """
-    Prepare data for Odoo upload - ONLY REAL ITEMS
-    Filters out store info, totals, taxes, and payment lines
+    Prepare data for Odoo upload - Filters out non-items and uses dynamic parsing
+    Combines keyword filtering with smart pattern recognition
     """
     try:
+        # Get data from receipt
         formatted = receipt_data.get('formatted_data', {})
         raw_text = receipt_data.get('text', '')
         
-        logger.info("=" * 50)
-        logger.info("🔍 EXTRACTING REAL ITEMS FOR ODOO")
-        logger.info(f"Raw text: {raw_text[:200]}...")
+        logger.info("=" * 60)
+        logger.info("🔍 PREPARING ODOO DATA - COMPLETE PARSING")
+        logger.info(f"Raw text length: {len(raw_text)} chars")
         
+        # ===== STEP 1: Extract basic info =====
         vendor_name = formatted.get('vendor_name', 'Unknown Vendor')
         bill_date = formatted.get('bill_date', datetime.now().strftime('%Y-%m-%d'))
         
-        # Get all lines
-        lines = raw_text.split('\n')
-        lines = [line.strip() for line in lines if line.strip()]
+        # ===== STEP 2: Use discount-aware parser =====
+        parsed_result = parse_receipt_dynamic(raw_text)
+        items = parsed_result.get('invoice_lines', [])
         
-        logger.info(f"📄 Processing {len(lines)} lines")
-        for i, line in enumerate(lines, 1):
-            logger.info(f"   Line {i}: {line}")
+        logger.info(f"📊 After discount-aware parsing: {len(items)} items")
         
-        # Comprehensive list of NON-ITEM keywords (things to EXCLUDE)
-        EXCLUDED_KEYWORDS = [
-            # Store info
-            'albetos', 'mexican', 'food', 'artesia', 'blvd', 'ph:', 'phone', 'www', '.com',
-            # Order info
-            'order #', 'order', 'recall', 'recall :',
-            # Tax related
-            'tax', 'vat', 'gst', 'tax total',
-            # Summary lines
-            'subtotal', 'sub-total', 'sub total',
-            'total', 'grand total', 'balance',
-            # Payment methods
-            'cash', 'credit', 'debit', 'atm', 'change', 'cg',
-            'payment', 'tender', 'charge',
-            # Other non-items
-            'welcome', 'phone orders', 'thank you'
-        ]
+        # ===== STEP 3: Apply strict filtering =====
+        filtered_items = filter_odoo_items(items)
         
-        invoice_lines = []
-        
-        for line_num, line in enumerate(lines, 1):
-            line_lower = line.lower().strip()
+        # ===== STEP 4: Try to extract date if not in formatted data =====
+        if not bill_date or bill_date == datetime.now().strftime('%Y-%m-%d'):
+            date_patterns = [
+                r'\d{4}-\d{2}-\d{2}',  # YYYY-MM-DD
+                r'\d{2}/\d{2}/\d{4}',   # MM/DD/YYYY
+                r'\d{2}-\d{2}-\d{4}',   # MM-DD-YYYY
+                r'\d{2}\.\d{2}\.\d{4}', # MM.DD.YYYY
+            ]
             
-            # Skip if line contains any excluded keyword
-            skip_line = False
-            for keyword in EXCLUDED_KEYWORDS:
-                if keyword in line_lower:
-                    logger.info(f"⏭️ Skipping line {line_num} (contains '{keyword}'): {line[:50]}")
-                    skip_line = True
-                    break
-            
-            if skip_line:
-                continue
-            
-            # Skip if line is too short
-            if len(line) < 3:
-                continue
-            
-            # Skip if line is just numbers or symbols
-            if re.match(r'^[\d\s.,$₹€£]+$', line):
-                logger.info(f"⏭️ Skipping line {line_num} (just numbers/symbols): {line}")
-                continue
-            
-            # Look for price at the end of line
-            price_match = re.search(r'(\d+[.,]?\d*)\s*$', line)
-            
-            if price_match:
-                # Extract the TOTAL price
-                price_str = price_match.group(1).replace(',', '')
-                total_price = float(price_str)
-                
-                # Skip if price is too large (likely total)
-                if total_price > 10000:
-                    logger.info(f"⏭️ Skipping large price ({total_price})")
-                    continue
-                
-                # Get item name (everything before the price)
-                item_name = re.sub(r'\s*\d+[.,]?\d*\s*$', '', line).strip()
-                
-                # Clean up item name
-                item_name = re.sub(r'^[\s\d]+', '', item_name)  # Remove leading numbers
-                item_name = re.sub(r'[$₹€£]', '', item_name)    # Remove currency symbols
-                item_name = item_name.strip()
-                
-                # Final check - make sure this is a real item name
-                if (len(item_name) > 2 and 
-                    not any(keyword in item_name.lower() for keyword in EXCLUDED_KEYWORDS) and
-                    not item_name.lower().startswith(('subtotal', 'total', 'tax', 'atm', 'recall'))):
-                    
-                    # Check for quantity
-                    quantity = 1
-                    clean_name = item_name
-                    
-                    # Quantity at start: "3 ASADA TACO"
-                    qty_start = re.match(r'^(\d+)\s+(.+)$', item_name)
-                    if qty_start:
-                        quantity = int(qty_start.group(1))
-                        clean_name = qty_start.group(2).strip()
-                    
-                    # Calculate unit price
-                    unit_price = total_price / quantity
-                    unit_price = round(unit_price, 2)
-                    
-                    invoice_lines.append({
-                        'label': clean_name[:100],
-                        'quantity': quantity,
-                        'price_unit': unit_price
-                    })
-                    
-                    logger.info(f"✅ REAL ITEM: {clean_name} | Qty: {quantity} | Unit: ${unit_price:.2f} | Total: ${total_price:.2f}")
-                else:
-                    logger.info(f"⏭️ Skipping non-item after cleaning: {item_name}")
-            else:
-                logger.info(f"⏭️ Line {line_num} (no price): {line[:50]}")
+            lines = raw_text.split('\n')
+            for line in lines:
+                for pattern in date_patterns:
+                    match = re.search(pattern, line)
+                    if match:
+                        date_str = match.group()
+                        try:
+                            if '/' in date_str:
+                                parts = date_str.split('/')
+                                bill_date = f"{parts[2]}-{parts[0]}-{parts[1]}"
+                            elif '-' in date_str and len(date_str) == 10:
+                                bill_date = date_str
+                            elif '.' in date_str:
+                                parts = date_str.split('.')
+                                bill_date = f"{parts[2]}-{parts[0]}-{parts[1]}"
+                            logger.info(f"📅 Found date: {bill_date}")
+                            break
+                        except:
+                            pass
+                    if bill_date != datetime.now().strftime('%Y-%m-%d'):
+                        break
         
-        # FINAL FILTER - Only keep real product names
-        real_items = []
-        for item in invoice_lines:
-            label = item['label'].lower()
-            # These are the ONLY items we want from your receipt
-            if 'taco' in label or 'atm charge' in label or len(label) > 3:
-                real_items.append(item)
-                logger.info(f"✅ KEEPING: {item['label']}")
+        # ===== STEP 5: If still no items, use raw text as note =====
+        if not filtered_items:
+            logger.warning("⚠️ No items found after parsing")
+            return {
+                'vendor_name': vendor_name,
+                'bill_date': bill_date,
+                'due_date': bill_date,
+                'currency': detect_currency(raw_text),
+                'invoice_lines': [],
+                'narration': f"Raw receipt text:\n{raw_text}"
+            }
         
-        if len(real_items) == 0:
-            logger.error("❌ No real items found")
-            return None
-        
-        logger.info("=" * 50)
-        logger.info(f"📊 FINAL ITEMS FOR ODOO:")
-        for item in real_items:
-            logger.info(f"   • {item['label']}: {item['quantity']} x ${item['price_unit']:.2f}")
-        logger.info("=" * 50)
+        # ===== STEP 6: Final logging and return =====
+        logger.info("=" * 60)
+        logger.info(f"📊 FINAL ITEMS FOR ODOO ({len(filtered_items)}):")
+        for idx, item in enumerate(filtered_items, 1):
+            total = item['quantity'] * item['price_unit']
+            discount_tag = " (DISCOUNT)" if item.get('is_discount') else ""
+            logger.info(f"   {idx}. {item['label'][:30]}{discount_tag}: {item['quantity']} x ${item['price_unit']:.2f} = ${total:.2f}")
+        logger.info("=" * 60)
         
         return {
             'vendor_name': vendor_name,
             'bill_date': bill_date,
             'due_date': bill_date,
             'currency': detect_currency(raw_text),
-            'invoice_lines': real_items,
+            'invoice_lines': filtered_items,
+            'subtotal': parsed_result.get('subtotal'),
+            'tax_amount': parsed_result.get('tax_amount'),
+            'total_amount': parsed_result.get('total_amount')
         }
         
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
+        logger.error(f"❌ Error in prepare_odoo_data: {e}")
         traceback.print_exc()
-        return None
+        return {
+            'vendor_name': 'Unknown Vendor',
+            'bill_date': datetime.now().strftime('%Y-%m-%d'),
+            'due_date': datetime.now().strftime('%Y-%m-%d'),
+            'currency': 'USD',
+            'invoice_lines': [],
+            'narration': f"Error processing receipt. Raw text:\n{receipt_data.get('text', '')}"
+        }
 
 # ==================== ITEM RECONSTRUCTION ====================
 def reconstruct_items_from_raw_text(raw_text):
@@ -942,6 +1178,7 @@ def process_receipt():
         logger.info(f"   Sharpness: {assessment.get('sharpness', 'Unknown')}")
         
         # STEP 3: Apply preprocessing ONLY if needed
+        enhanced_image = None
         if assessment['needs_preprocessing']:
             logger.info("🔄 Image needs enhancement - applying preprocessing...")
             enhanced_image = preprocessor.preprocess(original_image)
@@ -965,19 +1202,25 @@ def process_receipt():
         if not success:
             return jsonify({'success': False, 'error': vlm_result}), 500
         
-        # STEP 5: Return results with quality info
+        # STEP 5: Parse with discount-aware parser
+        parsed_result = parse_receipt_dynamic(vlm_result['text'])
+        
+        # STEP 6: Prepare formatted data
+        formatted_data = {
+            'vendor_name': 'Unknown Vendor',
+            'bill_reference': '',
+            'bill_date': datetime.now().strftime('%Y-%m-%d'),
+            'currency': detect_currency(vlm_result['text']),
+            'invoice_lines': parsed_result.get('invoice_lines', []),
+            'subtotal': parsed_result.get('subtotal', 0),
+            'tax_amount': parsed_result.get('tax_amount', 0),
+            'total_amount': parsed_result.get('total_amount', 0)
+        }
+        
+        # STEP 7: Return results with quality info
         result = {
             'text': vlm_result['text'],
-            'formatted_data': {
-                'vendor_name': 'Unknown Vendor',
-                'bill_reference': '',
-                'bill_date': datetime.now().strftime('%Y-%m-%d'),
-                'currency': detect_currency(vlm_result['text']),
-                'invoice_lines': [],
-                'subtotal': 0,
-                'tax_amount': 0,
-                'total_amount': 0
-            },
+            'formatted_data': formatted_data,
             'vlm_model': VLM_MODEL,
             'tokens_used': vlm_result.get('tokens_used', 0),
             'enhanced_image': enhanced_image if assessment['needs_preprocessing'] and enhanced_image else original_image,
@@ -1003,9 +1246,9 @@ def upload_to_odoo():
     
     try:
         data = request.get_json()
-        receipt_data = data.get('receipt_data', data)
         
-        # Get the original image from the request
+        # The frontend now sends the EDITED preview data directly
+        receipt_data = data.get('receipt_data', {})
         original_image = data.get('original_image', '')
         
         # FIX: Use environment variables as fallback if frontend data is missing
@@ -1037,13 +1280,21 @@ def upload_to_odoo():
         else:
             logger.warning("⚠️ check_access_rights method not found, skipping permission check")
         
-        # Prepare data for Odoo
-        odoo_data = prepare_odoo_data(receipt_data)
+        # Use the EDITED data directly from preview (NO additional filtering)
+        odoo_data = {
+            'vendor_name': receipt_data.get('vendor_name', 'Unknown Vendor'),
+            'bill_date': receipt_data.get('bill_date', datetime.now().strftime('%Y-%m-%d')),
+            'due_date': receipt_data.get('due_date', receipt_data.get('bill_date', datetime.now().strftime('%Y-%m-%d'))),
+            'currency': receipt_data.get('currency', detect_currency(receipt_data.get('text', ''))),
+            'invoice_lines': receipt_data.get('invoice_lines', [])
+        }
         
         # Validate that we have invoice lines
         if not odoo_data or not odoo_data.get('invoice_lines'):
             logger.error("❌ No invoice lines to upload")
             return jsonify({'success': False, 'error': 'No items to upload'}), 400
+        
+        logger.info(f"📤 Uploading EDITED preview data with {len(odoo_data['invoice_lines'])} items")
         
         # Create vendor bill with image attachment
         bill_result = odoo_connector.create_vendor_bill(odoo_data, original_image)
@@ -1065,7 +1316,7 @@ def upload_to_odoo():
                 'success': True, 
                 'bill_id': bill_id,
                 'bill_url': bill_url,
-                'message': 'Bill created successfully with receipt image'
+                'message': f'Bill created successfully with {len(odoo_data["invoice_lines"])} items from your edited preview'
             })
         else:
             return jsonify({'success': False, 'error': 'Failed to create bill'}), 500

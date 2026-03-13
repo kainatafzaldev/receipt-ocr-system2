@@ -1,0 +1,117 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 865B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 ...
+
+#3 [auth] library/python:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 DONE 2.7s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 594B done
+#4 DONE 0.0s
+
+#5 [1/7] FROM docker.io/library/python:3.12-slim@sha256:ccc7089399c8bb65dd1fb3ed6d55efa538a3f5e7fca3f5988ac3b5b87e593bf0
+#5 resolve docker.io/library/python:3.12-slim@sha256:ccc7089399c8bb65dd1fb3ed6d55efa538a3f5e7fca3f5988ac3b5b87e593bf0 0.0s done
+#5 sha256:5d7ccc6599a695634322e0346af751966d90030beb8b260c5af2b16dcc03d52e 0B / 12.11MB 0.2s
+#5 sha256:b9aab63c297c3a972f524d3f3c0c233d0f94720171fbe3b87e4adcb62acd8a9c 0B / 251B 0.2s
+#5 sha256:30dad65d3b2447a6e75deb634f85b4ca34d5f9a6e920f9f9c0bb916abafd965a 0B / 1.29MB 0.2s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 0B / 29.78MB 0.2s
+#5 sha256:5d7ccc6599a695634322e0346af751966d90030beb8b260c5af2b16dcc03d52e 5.24MB / 12.11MB 0.8s
+#5 sha256:b9aab63c297c3a972f524d3f3c0c233d0f94720171fbe3b87e4adcb62acd8a9c 251B / 251B 0.9s done
+#5 sha256:5d7ccc6599a695634322e0346af751966d90030beb8b260c5af2b16dcc03d52e 7.34MB / 12.11MB 0.9s
+#5 sha256:5d7ccc6599a695634322e0346af751966d90030beb8b260c5af2b16dcc03d52e 10.49MB / 12.11MB 1.1s
+#5 sha256:5d7ccc6599a695634322e0346af751966d90030beb8b260c5af2b16dcc03d52e 12.11MB / 12.11MB 1.2s done
+#5 sha256:30dad65d3b2447a6e75deb634f85b4ca34d5f9a6e920f9f9c0bb916abafd965a 1.29MB / 1.29MB 1.3s done
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 3.15MB / 29.78MB 1.5s
+#5 ...
+
+#6 [internal] load build context
+#6 transferring context: 24.51MB 1.6s done
+#6 DONE 1.7s
+
+#5 [1/7] FROM docker.io/library/python:3.12-slim@sha256:ccc7089399c8bb65dd1fb3ed6d55efa538a3f5e7fca3f5988ac3b5b87e593bf0
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 5.24MB / 29.78MB 1.7s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 7.34MB / 29.78MB 1.8s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 9.44MB / 29.78MB 2.0s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 11.53MB / 29.78MB 2.1s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 13.63MB / 29.78MB 2.3s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 15.73MB / 29.78MB 2.4s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 18.87MB / 29.78MB 2.7s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 20.97MB / 29.78MB 2.9s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 23.07MB / 29.78MB 3.0s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 25.17MB / 29.78MB 3.2s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 27.26MB / 29.78MB 3.3s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 29.78MB / 29.78MB 3.5s
+#5 sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 29.78MB / 29.78MB 3.5s done
+#5 extracting sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419
+#5 extracting sha256:206356c42440674ecbdf1070cf70ce8ef7885ac2e5c56f1ecf800b758f6b0419 0.5s done
+#5 DONE 4.2s
+
+#5 [1/7] FROM docker.io/library/python:3.12-slim@sha256:ccc7089399c8bb65dd1fb3ed6d55efa538a3f5e7fca3f5988ac3b5b87e593bf0
+#5 extracting sha256:30dad65d3b2447a6e75deb634f85b4ca34d5f9a6e920f9f9c0bb916abafd965a 0.1s done
+#5 extracting sha256:5d7ccc6599a695634322e0346af751966d90030beb8b260c5af2b16dcc03d52e
+#5 extracting sha256:5d7ccc6599a695634322e0346af751966d90030beb8b260c5af2b16dcc03d52e 0.3s done
+#5 DONE 4.5s
+
+#5 [1/7] FROM docker.io/library/python:3.12-slim@sha256:ccc7089399c8bb65dd1fb3ed6d55efa538a3f5e7fca3f5988ac3b5b87e593bf0
+#5 extracting sha256:b9aab63c297c3a972f524d3f3c0c233d0f94720171fbe3b87e4adcb62acd8a9c 69.3s done
+#5 DONE 73.8s
+
+#7 [2/7] WORKDIR /app
+#7 DONE 0.4s
+
+#8 [3/7] RUN apt-get update && apt-get install -y     tesseract-ocr     tesseract-ocr-eng     libgl1-mesa-glx     libglib2.0-0     libsm6     libxext6     libxrender-dev     libgomp1     wget     && rm -rf /var/lib/apt/lists/*
+#8 0.501 Hit:1 http://deb.debian.org/debian trixie InRelease
+#8 0.528 Get:2 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+#8 0.623 Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+#8 0.677 Get:4 http://deb.debian.org/debian trixie/main amd64 Packages [9670 kB]
+#8 1.487 Get:5 http://deb.debian.org/debian trixie-updates/main amd64 Packages [5412 B]
+#8 1.532 Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [111 kB]
+#8 2.000 Fetched 9878 kB in 2s (5725 kB/s)
+#8 2.000 Reading package lists...
+#8 2.362 Reading package lists...
+#8 2.694 Building dependency tree...
+#8 2.775 Reading state information...
+#8 2.786 Package libgl1-mesa-glx is not available, but is referred to by another package.
+#8 2.786 This may mean that the package is missing, has been obsoleted, or
+#8 2.786 is only available from another source
+#8 2.786 
+#8 2.788 E: Package 'libgl1-mesa-glx' has no installation candidate
+#8 ERROR: process "/bin/sh -c apt-get update && apt-get install -y     tesseract-ocr     tesseract-ocr-eng     libgl1-mesa-glx     libglib2.0-0     libsm6     libxext6     libxrender-dev     libgomp1     wget     && rm -rf /var/lib/apt/lists/*" did not complete successfully: exit code: 100
+------
+ > [3/7] RUN apt-get update && apt-get install -y     tesseract-ocr     tesseract-ocr-eng     libgl1-mesa-glx     libglib2.0-0     libsm6     libxext6     libxrender-dev     libgomp1     wget     && rm -rf /var/lib/apt/lists/*:
+1.532 Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [111 kB]
+
+
+2.694 Building dependency tree...
+2.775 Reading state information...
+2.786 Package libgl1-mesa-glx is not available, but is referred to by another package.
+2.786 This may mean that the package is missing, has been obsoleted, or
+2.786 is only available from another source
+2.786 
+2.788 E: Package 'libgl1-mesa-glx' has no installation candidate
+------
+Dockerfile:8
+--------------------
+   7 |     # Install system dependencies
+   8 | >>> RUN apt-get update && apt-get install -y \
+   9 | >>>     tesseract-ocr \
+  10 | >>>     tesseract-ocr-eng \
+  11 | >>>     libgl1-mesa-glx \
+  12 | >>>     libglib2.0-0 \
+  13 | >>>     libsm6 \
+  14 | >>>     libxext6 \
+  15 | >>>     libxrender-dev \
+  16 | >>>     libgomp1 \
+  17 | >>>     wget \
+  18 | >>>     && rm -rf /var/lib/apt/lists/*
+  19 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c apt-get update && apt-get install -y     tesseract-ocr     tesseract-ocr-eng     libgl1-mesa-glx     libglib2.0-0     libsm6     libxext6     libxrender-dev     libgomp1     wget     && rm -rf /var/lib/apt/lists/*" did not complete successfully: exit code: 100

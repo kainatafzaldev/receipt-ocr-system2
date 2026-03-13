@@ -1,0 +1,7 @@
+Diagnostic Report - 2026-03-12 14:16:57.985311
+Passed: 25
+Warnings: 0
+Issues: 1
+
+CRITICAL ISSUES:
+- python_dotenv missing - No module named 'python_dotenv'

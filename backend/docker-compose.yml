@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  receipt-ocr-app:
+    build: ./backend
+    container_name: receipt-ocr-system
+    ports:
+      - "5000:5000"
+    environment:
+      - NOVITA_API_KEY=${NOVITA_API_KEY}
+      - NOVITA_API_BASE=${NOVITA_API_BASE}
+      - VLM_MODEL=${VLM_MODEL}
+      - LLM_MODEL=${LLM_MODEL}
+      - ODOO_URL=${ODOO_URL}
+      - ODOO_DB=${ODOO_DB}
+      - ODOO_USERNAME=${ODOO_USERNAME}
+      - ODOO_PASSWORD=${ODOO_PASSWORD}
+      - PORT=5000
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/.env:/app/.env
+    restart: unless-stopped
+    networks:
+      - receipt-network
+
+networks:
+  receipt-network:
+    driver: bridge
