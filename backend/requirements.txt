@@ -7,4 +7,5 @@ opencv-python==4.8.1.78
 opencv-contrib-python==4.8.1.78
 numpy==1.26.2
 pytesseract==0.3.10
-gunicorn==21.2.0
+gunicorn==21.2.0imutils==0.5.4
+

@@ -215,6 +215,12 @@ function createFilteredPreview(lines) {
     // Keywords that indicate NON-ITEMS (to exclude from preview)
     const EXCLUDE_KEYWORDS = [
         'subtotal', 'tax', 'total', 'balance', 'amount due', 'cash', 'change', 'Tel',
+        'tel','phone','fax','email','www','.com','address',
+        'road','street','blvd','avenue','drive','city','state','zip','table','server',
+        'cashier','guest','party','order #','receipt #','check #'
+        ,'tab #','ticket #','subtotal','tax','total','balance','cash','change',
+        'debit','visa','mastercard','amex','payment','thank you',
+        'welcome','tip','gratuity','tip guide','please come again',
         'credit', 'debit', 'visa', 'mastercard', 'amex', 'payment', 'tender',
         'server:', 'cashier:', 'table:', 'order #', 'receipt #', 'phone:',
         'www.', '.com', 'thank you', 'welcome', 'address', 'road', 'street',
