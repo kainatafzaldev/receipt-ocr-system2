@@ -43,6 +43,43 @@ const odoDb = document.getElementById('odoDb');
 const odoUsername = document.getElementById('odoUsername');
 const odoPassword = document.getElementById('odoPassword');
 
+// ==================== PHONE NUMBER DETECTION ====================
+function isPhoneNumber(text) {
+    if (!text) return false;
+    
+    // Common phone number patterns
+    const patterns = [
+        /^\+?\d{1,4}[-.\s]?\d{3,4}[-.\s]?\d{4,5}$/,  // International
+        /^\(\d{3}\)\s*\d{3}[-\s]?\d{4}$/,            // (123) 456-7890
+        /^\d{3}[-\s]\d{3}[-\s]\d{4}$/,               // 123-456-7890
+        /^\d{3}[-\s]\d{4}$/,                          // 123-4567
+        /^\+?\d{10,15}$/,                             // Just digits, 10-15 long
+    ];
+    
+    for (let pattern of patterns) {
+        if (pattern.test(text.trim())) {
+            return true;
+        }
+    }
+    
+    // Check if it's mostly numbers
+    const digits = (text.match(/\d/g) || []).length;
+    const letters = (text.match(/[a-zA-Z]/g) || []).length;
+    
+    // If more digits than letters and at least 7 digits, likely a phone
+    if (digits > letters && digits >= 7 && letters < 3) {
+        return true;
+    }
+    
+    // Check for common phone keywords
+    const lower = text.toLowerCase();
+    if (lower.includes('tel:') || lower.includes('phone:') || lower.includes('fax:')) {
+        return true;
+    }
+    
+    return false;
+}
+
 // ==================== HEALTH CHECK ====================
 async function checkBackendHealth() {
     const backendStatus = document.getElementById('backendStatus');
@@ -215,8 +252,8 @@ function createFilteredPreview(lines) {
     // Keywords that indicate NON-ITEMS (to exclude from preview)
     const EXCLUDE_KEYWORDS = [
         'subtotal', 'tax', 'total', 'balance', 'amount due', 'cash', 'change', 'Tel',
-        'tel','phone','fax','email','www','.com','address',
-        'road','street','blvd','avenue','drive','city','state','zip','table','server',
+        'tel','phone','fax','email','www','.com','address','date','Date','time','Time','total',
+        'Total','road','street','blvd','avenue','drive','city','state','zip','table','server',
         'cashier','guest','party','order #','receipt #','check #'
         ,'tab #','ticket #','subtotal','tax','total','balance','cash','change',
         'debit','visa','mastercard','amex','payment','thank you',
@@ -224,7 +261,8 @@ function createFilteredPreview(lines) {
         'credit', 'debit', 'visa', 'mastercard', 'amex', 'payment', 'tender',
         'server:', 'cashier:', 'table:', 'order #', 'receipt #', 'phone:',
         'www.', '.com', 'thank you', 'welcome', 'address', 'road', 'street',
-        'blvd', 'avenue', 'albetos', 'mexican', 'grill', 'restaurant', 'cafe'
+        'blvd', 'avenue', 'albetos', 'mexican', 'grill', 'restaurant', 'cafe',
+        'ph:', 'tel:', 'phone:', 'fax:', 'email:', 'web:', 'website:'
     ];
     
     // Discount indicators (lowercase for case-insensitive matching)
@@ -241,6 +279,21 @@ function createFilteredPreview(lines) {
                 console.log(`⏭️ Preview skipping: ${line} (contains '${keyword}')`);
                 return;
             }
+        }
+        
+        // ADD THIS - Skip phone numbers
+        if (isPhoneNumber(line)) {
+            console.log(`⏭️ Preview skipping phone number: ${line}`);
+            return;
+        }
+        
+        // Also skip lines that are mostly numbers
+        const digitCount = (line.match(/\d/g) || []).length;
+        const totalChars = line.length;
+        if (digitCount > 0 && digitCount / totalChars > 0.4) {
+            // Skip if more than 40% of the line is digits (likely a phone/ID)
+            console.log(`⏭️ Preview skipping numeric line: ${line} (${digitCount}/${totalChars} digits)`);
+            return;
         }
         
         // Check if line contains discount indicators
@@ -358,7 +411,7 @@ function displayFilteredPreview(data) {
                 <h4 style="margin: 0; color: #17a2b8;">
                     <i class="fas fa-edit"></i> Detected Items (Edit if needed)
                 </h4>
-                <p style="color: #6c757d; margin: 5px 0 0;">Headers, taxes, and totals are automatically filtered out</p>
+                <p style="color: #6c757d; margin: 5px 0 0;">Headers, taxes, totals, and phone numbers are automatically filtered out</p>
             </div>
             <button onclick="window.addNewPreviewItem()" style="background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">
                 <i class="fas fa-plus"></i> Add Item
