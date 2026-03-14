@@ -18,6 +18,7 @@ import logging
 from document_scanner import DocumentScanner
 from image_preprocessor import ImagePreprocessor
 
+
 # Initialize preprocessor
 preprocessor = ImagePreprocessor()
 # Set up logging
@@ -30,6 +31,26 @@ print(f"🔍 Looking for .env at: {env_path}")
 print(f"🔍 File exists: {os.path.exists(env_path)}")
 
 load_dotenv(env_path)
+# Load environment variables
+env_path = os.path.join(os.path.dirname(__file__), '.env')
+print(f"🔍 Looking for .env at: {env_path}")
+print(f"🔍 File exists: {os.path.exists(env_path)}")
+
+# Force reload with override
+load_dotenv(env_path, override=True)
+
+# Debug: Check all env vars
+print("📋 Environment variables after loading:")
+print(f"  NOVITA_API_KEY exists: {bool(os.getenv('NOVITA_API_KEY'))}")
+print(f"  ODOO_URL exists: {bool(os.getenv('ODOO_URL'))}")
+print(f"  PORT: {os.getenv('PORT')}")
+
+# Now assign variables
+NOVITA_API_KEY = os.getenv('NOVITA_API_KEY')
+NOVITA_API_BASE = os.getenv('NOVITA_API_BASE', 'https://api.novita.ai/v3/openai')
+VLM_MODEL = os.getenv('VLM_MODEL', 'qwen/qwen3-vl-235b-a22b-instruct')
+LLM_MODEL = os.getenv('LLM_MODEL', 'meta-llama/llama-3.3-70b-instruct')
+PORT = int(os.getenv('PORT', 5000))
 
 # ==================== DISCOUNT DETECTION CONSTANTS ====================
 DISCOUNT_WORDS = [
@@ -273,6 +294,16 @@ app = Flask(__name__,
             static_folder=FRONTEND_DIR,
             static_url_path='')
 
+# Add before_request handler to reload environment for each request
+@app.before_request
+def before_request():
+    """Reload environment variables before each request"""
+    global NOVITA_API_KEY
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    NOVITA_API_KEY = os.getenv('NOVITA_API_KEY')
+    print(f"🔄 Before request - API Key loaded: {NOVITA_API_KEY[:10] if NOVITA_API_KEY else 'None'}...")
+
 # Configure CORS properly
 CORS(app, resources={
     r"/api/*": {
@@ -310,11 +341,22 @@ odoo = OdooConnector(
     password=ODOO_PASSWORD
 )
 
-# ==================== VALIDATION ====================
 def validate_api_key():
     """Validate that Novita.ai API key is configured"""
+    global NOVITA_API_KEY
+    
+    # Force reload on each call
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    NOVITA_API_KEY = os.getenv('NOVITA_API_KEY')
+    
+    print(f"🔑 validate_api_key - checking: '{NOVITA_API_KEY[:10] if NOVITA_API_KEY else 'None'}...'")
+    
     if not NOVITA_API_KEY or NOVITA_API_KEY == 'your_novita_api_key_here':
+        print("❌ API key missing or placeholder")
         return False, "Novita.ai API key not configured"
+    
+    print(f"✅ API key valid")
     return True, "Novita.ai API key is configured"
 
 # ==================== VLM EXTRACTION PROMPT (For Receipt OCR) ====================
@@ -861,7 +903,6 @@ def filter_odoo_items(items):
     
     logger.info(f"📊 Filtering complete: {len(filtered_items)}/{len(items)} items kept for Odoo")
     return filtered_items
-
 # ==================== TRULY DYNAMIC RECEIPT PARSER ====================
 def dynamic_receipt_parser(raw_text):
     """
