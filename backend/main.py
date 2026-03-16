@@ -1172,27 +1172,47 @@ def reconstruct_items_from_raw_text(raw_text):
 
 # ==================== ROUTES ====================
 
-
 @app.route('/')
 def home():
-    """Serve the frontend index.html file from multiple possible locations"""
+    """Serve frontend files from multiple possible locations"""
+    import os
+    
+    # Log current directory structure for debugging (visible in Railway logs)
+    print("="*50)
+    print("🔍 DEBUG: Looking for frontend files")
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    print(f"Current file directory: {current_dir}")
+    print(f"Current working directory: {os.getcwd()}")
+    
     # Try multiple possible locations for frontend files
-    possible_static_folders = [
-        app.static_folder,  # Current static folder setting
-        os.path.join(os.path.dirname(__file__), '..', 'frontend'),  # ../frontend
-        os.path.join(os.path.dirname(__file__), 'frontend'),        # ./frontend
-        '/frontend',  # Absolute path in container
+    possible_paths = [
+        os.path.join(current_dir, '..', 'frontend'),           # ../frontend from backend
+        os.path.join(current_dir, 'frontend'),                 # ./frontend
+        os.path.join(os.getcwd(), 'frontend'),                 # from working dir
+        '/frontend',                                            # absolute path in container
+        os.path.join(os.getcwd(), '..', 'frontend'),           # parent of working dir
     ]
     
-    for folder in possible_static_folders:
-        if folder and os.path.exists(folder):
-            index_path = os.path.join(folder, 'index.html')
-            if os.path.exists(index_path):
-                print(f"✅ Found frontend at: {folder}")
-                return send_from_directory(folder, 'index.html')
+    for path in possible_paths:
+        print(f"Checking: {path}")
+        if os.path.exists(path):
+            index_file = os.path.join(path, 'index.html')
+            if os.path.exists(index_file):
+                print(f"✅ Found frontend at: {path}")
+                return send_from_directory(path, 'index.html')
+            else:
+                print(f"   Path exists but index.html not found")
+                if os.path.exists(path):
+                    try:
+                        print(f"   Contents: {os.listdir(path)[:5]}")
+                    except:
+                        print(f"   Could not list directory contents")
+        else:
+            print(f"❌ Path does not exist: {path}")
     
     print(f"❌ Frontend not found in any location")
     return "Frontend files not found. Please check the server configuration.", 404
+
 @app.route('/api/process-receipt', methods=['POST', 'OPTIONS'])
 def process_receipt():
     if request.method == 'OPTIONS':
