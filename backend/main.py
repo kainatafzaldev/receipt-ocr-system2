@@ -1172,25 +1172,27 @@ def reconstruct_items_from_raw_text(raw_text):
 
 # ==================== ROUTES ====================
 
+
 @app.route('/')
 def home():
-    return send_from_directory(app.static_folder, 'index.html')
-
-@app.route('/<path:filename>')
-def serve_static(filename):
-    return send_from_directory(app.static_folder, filename)
-
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    key_valid, _ = validate_api_key()
-    return jsonify({
-        'status': 'healthy',
-        'api_key_configured': key_valid,
-        'vlm_model': VLM_MODEL,
-        'llm_model': LLM_MODEL,
-        'timestamp': datetime.now().isoformat()
-    })
-
+    """Serve the frontend index.html file from multiple possible locations"""
+    # Try multiple possible locations for frontend files
+    possible_static_folders = [
+        app.static_folder,  # Current static folder setting
+        os.path.join(os.path.dirname(__file__), '..', 'frontend'),  # ../frontend
+        os.path.join(os.path.dirname(__file__), 'frontend'),        # ./frontend
+        '/frontend',  # Absolute path in container
+    ]
+    
+    for folder in possible_static_folders:
+        if folder and os.path.exists(folder):
+            index_path = os.path.join(folder, 'index.html')
+            if os.path.exists(index_path):
+                print(f"✅ Found frontend at: {folder}")
+                return send_from_directory(folder, 'index.html')
+    
+    print(f"❌ Frontend not found in any location")
+    return "Frontend files not found. Please check the server configuration.", 404
 @app.route('/api/process-receipt', methods=['POST', 'OPTIONS'])
 def process_receipt():
     if request.method == 'OPTIONS':
