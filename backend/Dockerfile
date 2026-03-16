@@ -19,10 +19,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Fixed: Copy all files from current directory
+# Copy backend files from current directory
 COPY . .
+
+# IMPORTANT: Copy frontend files from project root to container
+COPY ../frontend /frontend
 
 EXPOSE 5000
 
-# Fixed: Run main.py instead of app.py
+# Run main.py
 CMD ["python", "main.py"]
