@@ -1171,6 +1171,12 @@ def reconstruct_items_from_raw_text(raw_text):
     return reconstructed
 
 # ==================== ROUTES ====================
+@app.route('/api/health')
+def health():
+    return jsonify({
+        "status": "running",
+        "message": "Receipt OCR API working"
+    })
 
 @app.route('/')
 def home():
