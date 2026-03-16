@@ -288,8 +288,8 @@ def fix_alignment_dynamic(raw_text):
 scanner = DocumentScanner()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_DIR = os.path.join(BASE_DIR, '..', 'frontend')
 
+FRONTEND_DIR = os.path.join(BASE_DIR, 'frontend')
 app = Flask(__name__, 
             static_folder=FRONTEND_DIR,
             static_url_path='')

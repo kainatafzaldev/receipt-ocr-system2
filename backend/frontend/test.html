@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Connection Status</h2>
+    <p>Backend: <span id="backend-status">[ ] Connected</span></p>
+    <p>API Key: <span id="api-key-status">[ ] Unknown</span></p>
+    <button id="refresh-btn">Refresh Status</button>
+    
+    <script>
+    async function test() {
+        const response = await fetch('http://localhost:5000/api/health');
+        const data = await response.json();
+        document.getElementById('backend-status').innerHTML = '[?] Connected';
+        if (data.api_key_configured) {
+            document.getElementById('api-key-status').innerHTML = '[?] Known';
+        }
+    }
+    test();
+    </script>
+</body>
+</html>

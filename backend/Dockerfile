@@ -1,6 +1,6 @@
 FROM python:3.9-slim
 
-# Install system dependencies with UPDATED package names
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     tesseract-ocr-eng \
@@ -19,13 +19,12 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend files from current directory
+# Copy backend files
 COPY . .
 
-# IMPORTANT: Copy frontend files from project root to container
+# IMPORTANT: Copy frontend files from project root
 COPY ../frontend /frontend
 
 EXPOSE 5000
 
-# Run main.py
 CMD ["python", "main.py"]
