@@ -1171,11 +1171,16 @@ def reconstruct_items_from_raw_text(raw_text):
     return reconstructed
 
 # ==================== ROUTES ====================
-@app.route('/api/health')
-def health():
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for frontend"""
+    key_valid, _ = validate_api_key()
     return jsonify({
-        "status": "running",
-        "message": "Receipt OCR API working"
+        'status': 'healthy',
+        'api_key_configured': key_valid,
+        'vlm_model': VLM_MODEL,
+        'llm_model': LLM_MODEL,
+        'timestamp': datetime.now().isoformat()
     })
 
 @app.route('/')
@@ -1446,4 +1451,5 @@ if __name__ == '__main__':
     print(f"📊 Odoo DB: {ODOO_DB}")
     print(f"👤 Odoo User: {ODOO_USERNAME}")
     print("=" * 70)
-    app.run(host='0.0.0.0', port=PORT, debug=True)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=False)
