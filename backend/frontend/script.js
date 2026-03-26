@@ -214,7 +214,15 @@ function displaySideBySide(data) {
     
     const extractedText = data.text || '';
     const lines = extractedText.split('\n').filter(line => line.trim() !== '');
-    
+
+    // ===== ARABIC ROUTE: detect and send to separate Arabic preview =====
+    if (isArabicReceipt(lines)) {
+        console.log('🔤 Arabic receipt detected — routing to Arabic preview');
+        displayArabicSideBySide(data, lines, extractedText);
+        return;
+    }
+    // ===== END ARABIC ROUTE — English code below is completely untouched =====
+
     // Create preview with ONLY real items (filtered)
     const odooPreview = createFilteredPreview(lines);
     previewData = odooPreview;
@@ -504,7 +512,12 @@ window.addNewPreviewItem = function() {
         unitPrice: 0.00,
         isDiscount: false
     });
-    updatePreviewDisplay();
+    // Smart: use Arabic re-render if Arabic table is on screen
+    if (document.getElementById('arabicPreviewTableBody')) {
+        updateArabicPreviewDisplay();
+    } else {
+        updatePreviewDisplay();
+    }
 };
 
 window.updatePreviewItem = function(index, field, value) {
@@ -513,18 +526,26 @@ window.updatePreviewItem = function(index, field, value) {
     if (field === 'name') {
         previewData.items[index].name = value;
     } else if (field === 'quantity') {
-        previewData.items[index].quantity = parseInt(value) || 0;
+        previewData.items[index].quantity = parseFloat(value) || 0;
     } else if (field === 'unitPrice') {
         previewData.items[index].unitPrice = parseFloat(value) || 0;
     }
     
-    updatePreviewDisplay();
+    if (document.getElementById('arabicPreviewTableBody')) {
+        updateArabicPreviewDisplay();
+    } else {
+        updatePreviewDisplay();
+    }
 };
 
 window.removePreviewItem = function(index) {
     if (!previewData) return;
     previewData.items.splice(index, 1);
-    updatePreviewDisplay();
+    if (document.getElementById('arabicPreviewTableBody')) {
+        updateArabicPreviewDisplay();
+    } else {
+        updatePreviewDisplay();
+    }
 };
 
 function updatePreviewDisplay() {
@@ -810,3 +831,220 @@ window.updatePreviewItem = updatePreviewItem;
 window.removePreviewItem = removePreviewItem;
 window.uploadToOdoo = uploadToOdoo;
 window.testOdooConnection = testOdooConnection;
+
+
+// ============================================================
+// ===== ARABIC RECEIPT — COMPLETELY SEPARATE SECTION =========
+// ============================================================
+
+// Detect if receipt has Arabic text (2+ lines with Arabic characters)
+function isArabicReceipt(lines) {
+    const arabicCount = lines.filter(l => (l.match(/[\u0600-\u06FF]/g) || []).length > 0).length;
+    return arabicCount >= 2;
+}
+
+// Parse one Arabic RTL line
+// Extracted text format (left to right): AMOUNT | QTY | ITEM NAME
+// e.g. "9.60 SR  2.000 kg  Black Grapes العنب الأسود"
+// → unitPrice = 9.60 / 2.000 = 4.80
+function parseArabicLine(line) {
+    const skipWords = [
+        'total','مجموع','صافي','ضريبة','vat','tax','net','cash',
+        'amount','qty','item','الكمية','اسم','مبلغ','change','subtotal'
+    ];
+    if (skipWords.some(w => line.toLowerCase().includes(w))) return null;
+
+    // Pattern: [amount] [optional currency] [qty] [optional unit] [item name]
+    const match = line.match(
+        /^([\d.]+)\s*(?:SR|SAR|ر\.س|ريال)?\s+([\d.]+)\s*(?:kg|g|l|ml|pcs|pc|unit|units)?\s+(.+)$/i
+    );
+    if (!match) return null;
+
+    const lineTotal = parseFloat(match[1]);
+    const qty       = parseFloat(match[2]);
+    const name      = match[3].trim();
+
+    if (!lineTotal || !qty || !name || lineTotal <= 0 || qty <= 0) return null;
+    if (qty > lineTotal * 10) return null; // sanity check
+
+    const unitPrice = Math.round((lineTotal / qty) * 10000) / 10000;
+    return { name, quantity: qty, unitPrice, isDiscount: false };
+}
+
+// Build Arabic items array from lines
+function createArabicPreview(lines) {
+    const items = [];
+    let subtotal = 0;
+
+    lines.forEach(line => {
+        line = line.trim();
+        if (!line) return;
+        const item = parseArabicLine(line);
+        if (item) {
+            items.push(item);
+            subtotal += item.quantity * item.unitPrice;
+            console.log(`🔤 Arabic item: ${item.name} | qty:${item.quantity} | unit:${item.unitPrice}`);
+        } else {
+            console.log(`⏭️ Arabic skipping: ${line}`);
+        }
+    });
+
+    if (items.length === 0) {
+        items.push({ name: 'No valid items found - please check raw text', quantity: 0, unitPrice: 0, isDiscount: false });
+    }
+
+    return { items, subtotal };
+}
+
+// Arabic full side-by-side display — own layout, own table IDs, own blue styling
+function displayArabicSideBySide(data, lines, extractedText) {
+    const arabicPreview = createArabicPreview(lines);
+    previewData = arabicPreview; // shared so uploadToOdoo still works
+
+    let html = `
+    <div class="result-section">
+        <div style="background: linear-gradient(135deg, #1565c0 0%, #0288d1 100%); color: white; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+            <h3 style="margin:0;">✅ Arabic Receipt Processed Successfully</h3>
+            <p style="margin:5px 0 0;">${lines.length} lines detected, ${arabicPreview.items.length} items found</p>
+        </div>
+
+        <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 30px;">
+            <div style="flex: 1; min-width: 300px; background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h4 style="margin-top: 0; color: #1565c0;"><i class="fas fa-image"></i> Original Receipt</h4>
+                <img src="${currentImageData}" style="width: 100%; height: auto; border: 1px solid #dee2e6; border-radius: 4px;">
+            </div>
+
+            <div style="flex: 1; min-width: 300px; background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h4 style="margin-top: 0; color: #0288d1;"><i class="fas fa-file-alt"></i> Raw OCR Text</h4>
+                <pre style="white-space: pre-wrap; background: #f8f9fa; padding: 10px; border-radius: 4px; max-height: 400px; overflow-y: auto; font-size: 12px; direction: rtl; text-align: right;">${escapeHtml(extractedText)}</pre>
+            </div>
+        </div>`;
+
+    html += displayArabicPreviewTable(arabicPreview);
+    resultsDiv.innerHTML = html;
+
+    if (uploadOdooBtn) uploadOdooBtn.disabled = false;
+}
+
+// Arabic editable preview table — own IDs: arabicPreviewTable, arabicPreviewTableBody, arabicSubtotalDisplay
+function displayArabicPreviewTable(data) {
+    if (data.items.length === 0 || (data.items.length === 1 && data.items[0].name.includes('No valid items'))) {
+        return `
+        <div style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; padding: 20px; margin-top: 20px;">
+            <h4 style="color: #856404; margin-top: 0;"><i class="fas fa-exclamation-triangle"></i> No Items Found</h4>
+            <p>No valid items could be automatically detected. Please check the raw text above or upload a clearer receipt.</p>
+        </div>`;
+    }
+
+    let html = `
+    <div style="background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div>
+                <h4 style="margin: 0; color: #1565c0;">
+                    <i class="fas fa-edit"></i> Detected Items — Arabic Receipt (Edit if needed)
+                </h4>
+                <p style="color: #6c757d; margin: 5px 0 0;">RTL column order: Amount ÷ Qty = correct Unit Price</p>
+            </div>
+            <button onclick="window.addNewPreviewItem()" style="background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                <i class="fas fa-plus"></i> Add Item
+            </button>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table style="width:100%; border-collapse: collapse; margin-bottom: 20px;" id="arabicPreviewTable">
+                <thead>
+                    <tr style="background: #1565c0; color: white;">
+                        <th style="padding: 12px; text-align: left;">Item</th>
+                        <th style="padding: 12px; width: 100px;">Quantity</th>
+                        <th style="padding: 12px; width: 120px;">Unit Price</th>
+                        <th style="padding: 12px; width: 120px;">Total</th>
+                        <th style="padding: 12px; width: 50px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="arabicPreviewTableBody">`;
+
+    data.items.forEach((item, index) => {
+        html += generateArabicRowHtml(item, index);
+    });
+
+    html += `
+                </tbody>
+                <tfoot>
+                    <tr style="background: #f8f9fa; font-weight: bold;">
+                        <td colspan="3" style="padding: 12px; text-align: right;">Subtotal:</td>
+                        <td id="arabicSubtotalDisplay" style="padding: 12px; color: #28a745; text-align: right;">SR ${data.subtotal.toFixed(2)}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+            <button onclick="window.uploadToOdoo()" style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                <i class="fas fa-upload"></i> Upload to Odoo
+            </button>
+        </div>
+    </div>`;
+
+    return html;
+}
+
+// Arabic row — decimal qty/price steps for weight-based items
+function generateArabicRowHtml(item, index) {
+    const unitPrice = parseFloat(item.unitPrice) || 0;
+    const qty = parseFloat(item.quantity) || 0;
+    const total = qty * unitPrice;
+
+    return `
+    <tr data-index="${index}" style="border-bottom: 1px solid #dee2e6;">
+        <td style="padding: 10px;">
+            <input type="text" value="${escapeHtml(item.name)}"
+                   style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;"
+                   onchange="window.updatePreviewItem(${index}, 'name', this.value)">
+        </td>
+        <td style="padding: 10px;">
+            <input type="number" value="${qty}" min="0" step="0.001"
+                   style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;"
+                   onchange="window.updatePreviewItem(${index}, 'quantity', this.value)">
+        </td>
+        <td style="padding: 10px;">
+            <input type="number" value="${unitPrice.toFixed(4)}" step="0.0001"
+                   style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;"
+                   onchange="window.updatePreviewItem(${index}, 'unitPrice', this.value)">
+        </td>
+        <td style="padding: 10px; font-weight: bold; color: #28a745; text-align: right;">
+            SR ${total.toFixed(2)}
+        </td>
+        <td style="padding: 10px; text-align: center;">
+            <button onclick="window.removePreviewItem(${index})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    </tr>`;
+}
+
+// Arabic re-render — targets arabicPreviewTableBody + arabicSubtotalDisplay only
+function updateArabicPreviewDisplay() {
+    if (!previewData) return;
+    const tbody = document.getElementById('arabicPreviewTableBody');
+    const subtotalDisplay = document.getElementById('arabicSubtotalDisplay');
+    if (!tbody) return;
+
+    previewData.subtotal = previewData.items.reduce((sum, item) => {
+        return sum + (item.quantity * item.unitPrice);
+    }, 0);
+
+    let html = '';
+    previewData.items.forEach((item, index) => {
+        html += generateArabicRowHtml(item, index);
+    });
+    tbody.innerHTML = html;
+
+    if (subtotalDisplay) {
+        subtotalDisplay.textContent = `SR ${previewData.subtotal.toFixed(2)}`;
+    }
+}
+
+// ============================================================
+// ===== END ARABIC RECEIPT SECTION ===========================
+// ============================================================
