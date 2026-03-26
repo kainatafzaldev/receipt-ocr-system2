@@ -359,7 +359,6 @@ def validate_api_key():
     print(f"✅ API key valid")
     return True, "Novita.ai API key is configured"
 
-# ==================== VLM EXTRACTION PROMPT (For Receipt OCR) ====================
 VLM_EXTRACTION_PROMPT = """You are an expert OCR system for receipts and invoices. Your ONLY task is to extract ALL text EXACTLY as it appears, PRESERVING THE ORIGINAL LINE STRUCTURE AND SPACING.
 
 CRITICAL RULES - READ CAREFULLY:
@@ -391,134 +390,173 @@ CRITICAL RULES - READ CAREFULLY:
    - If the receipt shows "Total: $93.58" with 1 space, output EXACTLY with 1 space
    - DO NOT normalize, trim, or clean up spacing
 
-4. COPY EXACTLY - FOLLOW THESE EXAMPLES OF CORRECT EXTRACTION:
+4. DETECT AND HANDLE ANY PRICE COLUMN FORMAT DYNAMICALLY:
+   Receipts can show prices in many different column layouts. You MUST detect the layout
+   from the receipt itself and extract accordingly.
 
-   EXAMPLE A - Store Information (keep as separate lines with exact spacing):
-   Receipt: "ALBETOS MEXICAN FOOD"
-   Output: "ALBETOS MEXICAN FOOD"
-   
-   Receipt: "11732 ARTESIA BLVD."
-   Output: "11732 ARTESIA BLVD."
-   
-   Receipt: "ARTESIA, CA. Ph: (562) 860-2530"
-   Output: "ARTESIA, CA. Ph: (562) 860-2530"
-   
-   Receipt: "www.akirasushigroup.com"
-   Output: "www.akirasushigroup.com"
+   SINGLE PRICE FORMAT (most common):
+   - One price per item line
+   - Example: "MILK    $3.99"
+   - Output:  "MILK    $3.99"
 
-   EXAMPLE B - Column Headers with spacing (CRITICAL - preserve spaces):
-   Receipt: "QTY    ITEM    Amt"
-   Output: "QTY    ITEM    Amt"
-   
-   Receipt: "QTY  ITEM  PRICE  TOTAL"
-   Output: "QTY  ITEM  PRICE  TOTAL"
+   TWO-PRICE FORMAT (supermarkets with loyalty cards):
+   - Two prices on same line: [Original Price]  [Sale/Card Price]
+   - The suffix after price tells you the type: "S" = Sale, "T" = Taxable, "F" = Food
+   - Extract BOTH prices on the same line with exact spacing
+   - Example: "ITEM NAME    7.98    5.00 S"
+   - Output:  "ITEM NAME    7.98    5.00 S"
 
-   EXAMPLE C - Items with quantity at start (keep as one line with exact spacing):
-   Receipt: "3 ASADA TACO    $29.97"
-   Output: "3 ASADA TACO    $29.97"
-   
-   Receipt: "2 SODA    $5.98"
-   Output: "2 SODA    $5.98"
-   
-   Receipt: "1    Hi Chk Steak(K)    $22.95"
-   Output: "1    Hi Chk Steak(K)    $22.95"
+   MULTI-COLUMN FORMAT (POS systems, business invoices):
+   - Multiple columns: [Code] [Description] [Qty] [Unit] [Price] [Discount] [Total]
+   - Extract the ENTIRE line with all columns preserved
+   - Example: "FG-022984 - LU Nankhatai 358.4g  3  1 Piece  313.00  48.81  319.00"
+   - Output:  "FG-022984 - LU Nankhatai 358.4g  3  1 Piece  313.00  48.81  319.00"
 
-   EXAMPLE D - Items with quantity at end (keep as one line):
-   Receipt: "PAPYRUS CARDS 2    $19.94"
-   Output: "PAPYRUS CARDS 2    $19.94"
+   WEIGHT-BASED FORMAT (produce, deli, meat):
+   - Weight calculation appears on its own line
+   - Example line 1: "WT    NAVEL ORANGES    3.24    2.48 S"
+   - Example line 2: "2.51 lb @ $0.99 /lb"
+   - Output both lines separately exactly as they appear
 
-   EXAMPLE E - Items with multiplication (keep as one line):
-   Receipt: "Snowglobe 6.99 x 3    $20.97"
-   Output: "Snowglobe 6.99 x 3    $20.97"
+   DISCOUNT/SAVINGS FORMAT (loyalty card savings):
+   - "Regular Price" or "Original Price" lines → extract with "-" exactly
+   - "Card Savings" or "Member Savings" lines → extract with "-" exactly
+   - Example: "Regular Price    7.98-"  →  Output: "Regular Price    7.98-"
+   - Example: "Card Savings    2.98-"   →  Output: "Card Savings    2.98-"
 
-   EXAMPLE F - Tax and Summary Lines (keep as separate lines with exact spacing):
-   Receipt: "SUBTOTAL:    $87.55"
-   Output: "SUBTOTAL:    $87.55"
-   
-   Receipt: "Tax    $6.93"
-   Output: "Tax    $6.93"
-   
-   Receipt: "TOTAL:    $93.58"
-   Output: "TOTAL:    $93.58"
+5. COPY EXACTLY - FOLLOW THESE EXAMPLES OF CORRECT EXTRACTION:
 
-   EXAMPLE G - Payment and Other Lines (keep as is):
-   Receipt: "ATM    $9.58"
-   Output: "ATM    $9.58"
-   
-   Receipt: "RECALL    :636"
-   Output: "RECALL    :636"
-   
-   Receipt: "CASH    $20.00"
-   Output: "CASH    $20.00"
-   
-   Receipt: "CHANGE    $10.15"
-   Output: "CHANGE    $10.15"
-   
-   Receipt: "ORDER # 01029"
-   Output: "ORDER # 01029"
-   
-   Receipt: "#37 PICKUP"
-   Output: "#37 PICKUP"
+   EXAMPLE A - Store Information:
+   Receipt: "ALBETOS MEXICAN FOOD"      Output: "ALBETOS MEXICAN FOOD"
+   Receipt: "11732 ARTESIA BLVD."       Output: "11732 ARTESIA BLVD."
+   Receipt: "Ph: (562) 860-2530"        Output: "Ph: (562) 860-2530"
+   Receipt: "www.storewebsite.com"      Output: "www.storewebsite.com"
 
-   EXAMPLE H - Multi-column POS Receipts (Pakistani/Indian format):
+   EXAMPLE B - Column Headers:
+   Receipt: "QTY    ITEM    Amt"         Output: "QTY    ITEM    Amt"
+   Receipt: "QTY  ITEM  PRICE  TOTAL"   Output: "QTY  ITEM  PRICE  TOTAL"
+
+   EXAMPLE C - Single price items:
+   Receipt: "3 ASADA TACO    $29.97"    Output: "3 ASADA TACO    $29.97"
+   Receipt: "MILK 2%    3.99"           Output: "MILK 2%    3.99"
+
+   EXAMPLE D - Two price column items (supermarket style):
+   Receipt: "2 QTY FIBER ONE    7.98    5.00 S"
+   Output:  "2 QTY FIBER ONE    7.98    5.00 S"
+
+   Receipt: "SFWY ZESTY DILL    2.99    2.00 S"
+   Output:  "SFWY ZESTY DILL    2.99    2.00 S"
+
+   Receipt: "YELLOW TAIL SWEET    7.99    5.99 T"
+   Output:  "YELLOW TAIL SWEET    7.99    5.99 T"
+
+   Receipt: "MR    2 QTY DSPSL BAG    0.10    0.10 T"
+   Output:  "MR    2 QTY DSPSL BAG    0.10    0.10 T"
+
+   EXAMPLE E - Weight-based items:
+   Receipt: "WT    NAVEL ORANGES    3.24    2.48 S"
+   Output:  "WT    NAVEL ORANGES    3.24    2.48 S"
+
+   Receipt: "2.51 lb @ $0.99 /lb"
+   Output:  "2.51 lb @ $0.99 /lb"
+
+   EXAMPLE F - Loyalty card savings lines:
+   Receipt: "Regular Price    7.98-"    Output: "Regular Price    7.98-"
+   Receipt: "Card Savings    2.98-"     Output: "Card Savings    2.98-"
+   Receipt: "Member Savings    1.00-"   Output: "Member Savings    1.00-"
+   Receipt: "Markdown    -$1.00"        Output: "Markdown    -$1.00"
+   Receipt: "DISCOUNT    -$5.00"        Output: "DISCOUNT    -$5.00"
+
+   EXAMPLE G - Tax and Summary Lines:
+   Receipt: "SUBTOTAL:    $87.55"       Output: "SUBTOTAL:    $87.55"
+   Receipt: "Tax    $6.93"              Output: "Tax    $6.93"
+   Receipt: "TOTAL:    $93.58"          Output: "TOTAL:    $93.58"
+   Receipt: "****BALANCE    72.91"      Output: "****BALANCE    72.91"
+
+   EXAMPLE H - Payment Lines:
+   Receipt: "CASH    $20.00"            Output: "CASH    $20.00"
+   Receipt: "CHANGE    $10.15"          Output: "CHANGE    $10.15"
+   Receipt: "ATM    $9.58"              Output: "ATM    $9.58"
+
+   EXAMPLE I - Multi-column POS Receipts:
    Receipt: "FG-022984 - LU SP Jaferi Nankhatai 358.4g  3  1 Piece  313.00  48.81  319.00"
-   Output: "FG-022984 - LU SP Jaferi Nankhatai 358.4g  3  1 Piece  313.00  48.81  319.00"
-   
-   Receipt: "MD - NAN KHATAI          1    150.00    0.00   150.00"
-   Output: "MD - NAN KHATAI          1    150.00    0.00   150.00"
-
-   EXAMPLE I - Discount/Markdown Lines:
-   Receipt: "Markdown    -$1.00"
-   Output: "Markdown    -$1.00"
-   
-   Receipt: "DISCOUNT    -$5.00"
-   Output: "DISCOUNT    -$5.00"
+   Output:  "FG-022984 - LU SP Jaferi Nankhatai 358.4g  3  1 Piece  313.00  48.81  319.00"
 
    EXAMPLE J - Arabic/Urdu Receipts:
-   Receipt: "عرض اسعار    ر.س 150.00"
-   Output: "عرض اسعار    ر.س 150.00"
-   
-   Receipt: "بریانی    Rs. 350"
-   Output: "بریانی    Rs. 350"
+   Receipt: "عرض اسعار    ر.س 150.00"   Output: "عرض اسعار    ر.س 150.00"
+   Receipt: "بریانی    Rs. 350"          Output: "بریانی    Rs. 350"
 
-5. HANDLE ALL FORMATS DYNAMICALLY:
-   - Supermarket receipts (grocery store, retail)
-   - Petrol/Fuel receipts (gas station)
-   - Sales/Purchase invoices (business invoices)
-   - Restaurant bills
-   - Price quotations (عرض اسعار in Arabic)
-   - Wholesale price lists
-   - POS receipts (Point of Sale from Pakistan, India, etc.)
-   - Any receipt in any language
+   EXAMPLE K - Crossed out / strikethrough prices:
+   Receipt: "Was $19.99 Now $14.99" with $19.99 crossed out
+   Output:  "Was $19.99[STRIKETHROUGH] Now $14.99"
 
-6. MARK SPECIAL ELEMENTS:
-   - If a price is crossed out or has a strikethrough, append "[STRIKETHROUGH]" after the price
-   - Example: "Was $19.99 Now $14.99" with strikethrough on $19.99 → "Was $19.99[STRIKETHROUGH] Now $14.99"
-   - If a line is a discount with negative amount, keep the negative sign exactly as shown
-   - If there are handwritten notes or modifications, include them
-   - If something is circled or highlighted, include it as is
+6. HANDLE ALL RECEIPT TYPES DYNAMICALLY:
+   Look at the receipt first, identify its type, then extract accordingly:
+
+   TYPE A - Supermarket/Grocery (Safeway, Walmart, Kroger, Target):
+   → May have two-price columns + loyalty savings lines
+   → Section headers like GROCERY, PRODUCE, MEAT, DELI, BAKERY
+   → "S" = Sale price, "T" = Taxable, "F" = Food/non-taxable
+
+   TYPE B - Restaurant/Fast Food:
+   → Single price per item
+   → May have modifiers/options indented under main item
+   → Tip lines at bottom
+
+   TYPE C - Business Invoice (B2B):
+   → Multi-column table format
+   → May be in any language
+   → Has invoice number, due date, payment terms
+
+   TYPE D - Fuel/Petrol Receipt:
+   → Volume × price per unit = total
+   → Pump number, fuel grade
+
+   TYPE E - POS System Receipt (Pakistan/India/Middle East):
+   → Multi-column with item codes
+   → May mix English + local language
+   → Columns: Code, Description, Qty, Unit, Price, Discount, Total
+
+   TYPE F - Price Quotation:
+   → May be in Arabic (عرض اسعار) or other languages
+   → Table format with quantities and unit prices
 
 7. PRESERVE ORDER:
    - Keep every line in the exact order it appears on the receipt
    - Do not rearrange, reorder, or sort any lines
-   - Do not move tax lines, subtotals, or totals to the bottom if they appear elsewhere
+   - Do not move tax lines, subtotals, or totals
 
-8. NO MODIFICATIONS:
+8. MARK SPECIAL ELEMENTS:
+   - Crossed out/strikethrough price → append [STRIKETHROUGH]
+   - Handwritten additions → include them as written
+   - Circled or highlighted items → include as-is
+
+9. NO MODIFICATIONS:
    - Do NOT add any text that isn't on the receipt
    - Do NOT remove any text that is on the receipt
    - Do NOT correct spelling or formatting
    - Do NOT add explanations or notes
    - Do NOT use markdown or code blocks
    - Do NOT normalize spacing
-   - Do NOT trim trailing or leading spaces
 
-9. YOUR ONLY JOB IS EXTRACTION:
-   - Extract EVERY line exactly as shown
-   - Do NOT decide what is an item vs what is tax/total/payment
-   - Do NOT filter anything out
-   - Just copy everything exactly as it appears
-   - The backend will handle parsing and filtering
-
+10. YOUR ONLY JOB IS EXTRACTION:
+    - Extract EVERY line exactly as shown
+    - Do NOT filter anything out
+    - The backend will handle all parsing and filtering
+    
+11. ARABIC/RTL RECEIPT LAYOUT DETECTION:
+    When you detect Arabic text (أ ب ت etc.) in the receipt:
+    - Columns run RIGHT→LEFT visually: (اسم العنصر) ITEM NAME | (الكمية) QTY | (مبلغ) AMOUNT
+    - The LEFTMOST printed column is the AMOUNT/PRICE (مبلغ)
+    - The MIDDLE printed column is the QTY/WEIGHT (الكمية)
+    - The RIGHTMOST printed column is the ITEM NAME (اسم العنصر)
+    - Extract each line as: AMOUNT  QTY  ITEM_NAME (left to right in extracted text)
+    - Example: "9.60 SR  2.000 kg  Black Grapes العنب الأسود"
+      → Amount=9.60, Qty=2.000, Name="Black Grapes العنب الأسود"
+    - NEVER swap the amount and quantity columns
+    - The AMOUNT column always contains the total price for that line
+    - The QTY column contains weight or unit count (e.g. 2.000 kg, 1.000 kg)
+    - unit_price = AMOUNT ÷ QTY (do NOT use QTY as the price)
 Return ONLY the raw text with each line exactly as it appears on the receipt. No explanations, no markdown, no additional text, no JSON formatting - JUST THE RAW TEXT WITH EXACT SPACING AND LINE BREAKS."""
 
 
@@ -628,6 +666,7 @@ FILTERING RULES (IMPORTANT):
 - Payment information is NOT needed in the output
 - Store information is ONLY used for vendor_name
 
+
 JSON FORMAT (return ONLY this):
 {
   "vendor_name": "Store Name",
@@ -663,6 +702,20 @@ CRITICAL REMINDERS:
 8. Only actual PRODUCTS go in invoice_lines - taxes, shipping, and fees go in their respective arrays
 9. Do NOT include ATM, CASH, CHANGE, RECALL lines as items
 10. Do NOT include store addresses, phone numbers, or website URLs as items
+ARABIC/RTL RECEIPT COLUMN RULES (CRITICAL):
+When the receipt contains Arabic text, columns are in RTL order:
+- Column order on paper (right to left): ITEM NAME (اسم العنصر) | QTY (الكمية) | AMOUNT (مبلغ)
+- In extracted text this appears as: AMOUNT | QTY | ITEM NAME (left to right)
+- AMOUNT = the total price paid for that line (e.g. 9.60 SR)
+- QTY = weight or unit count (e.g. 2.000 kg)
+- ITEM NAME = the product description (may be bilingual e.g. "Black Grapes العنب الأسود")
+- ALWAYS calculate: price_unit = AMOUNT ÷ QTY
+- Example correct extraction:
+  Line: "9.60 SR  2.000 kg  Black Grapes"  → label="Black Grapes", quantity=2.0, price_unit=4.80, line_subtotal=9.60
+  Line: "1.28 SR  1.000 kg  Onions"        → label="Onions", quantity=1.0, price_unit=1.28, line_subtotal=1.28
+  Line: "2.70 SR  3.000 kg  Carrots"       → label="Carrots", quantity=3.0, price_unit=0.90, line_subtotal=2.70
+- NEVER use the QTY value (2.000, 1.000, 3.000) as the price_unit
+- The printed TOTAL at bottom (مجموع) is the subtotal, صافي is the net amount after VAT
 
 Return ONLY the JSON object. Nothing else."""
 def extract_text_with_vlm(base64_image):
@@ -1452,4 +1505,5 @@ if __name__ == '__main__':
     print(f"👤 Odoo User: {ODOO_USERNAME}")
     print("=" * 70)
     port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    from waitress import serve
+    serve(app, host="0.0.0.0", port=port)

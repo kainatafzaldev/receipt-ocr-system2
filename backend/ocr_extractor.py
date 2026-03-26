@@ -91,7 +91,7 @@ Extract line by line, exactly as shown."""
                     ]
                 }
             ],
-            "max_tokens": 4096,
+            "max_tokens": 8192,
             "temperature": 0.0,
             "top_p": 0.01
         }
